@@ -1,0 +1,1599 @@
+/* คัดลอกโครงสร้าง CSS custom properties ตรงจาก ui_mockup_verdict_badge.html
+   เพื่อให้ light/dark theme มีความหมายสีตรงกันทั้งสองฝั่ง */
+
+:root {
+  --ink: #1c2430;
+  --ink-soft: #5b6472;
+  --paper: #f3f1ec;
+  --card: #ffffff;
+  --line: #e4e0d6;
+  --navy: #1f3a5f;
+
+  --good-strong: #1f7a5c;
+  --good-strong-bg: #e4f3ec;
+  --good: #2e8b6e;
+  --good-bg: #eaf6f0;
+  --mid: #b8862b;
+  --mid-bg: #fbf1de;
+  --bad: #b4442e;
+  --bad-bg: #fbeae5;
+  --popular: #7c3aed;
+  --popular-bg: #f1e8fd;
+  --favorite: #d6336c;
+  --favorite-bg: #fbe7ee;
+}
+
+/* prefers-color-scheme เป็น default เมื่อผู้ใช้ยังไม่กด toggle (ไม่มี data-theme บน <html>) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --ink: #edeff4;
+    --ink-soft: #9aa3b2;
+    --paper: #12161d;
+    --card: #1b212b;
+    --line: #2b3340;
+    --navy: #8fb4e8;
+
+    --good-strong: #4fce9c;
+    --good-strong-bg: #183328;
+    --good: #4fce9c;
+    --good-bg: #17281f;
+    --mid: #e3b462;
+    --mid-bg: #2e2717;
+    --bad: #f2907a;
+    --bad-bg: #301e1b;
+    --popular: #c4a4f7;
+    --popular-bg: #29203f;
+    --favorite: #f299bb;
+    --favorite-bg: #3a2230;
+  }
+}
+
+/* toggle ผู้ใช้กดเอง ชนะ prefers-color-scheme เสมอทั้งสองทิศทาง */
+[data-theme='dark'] {
+  --ink: #edeff4;
+  --ink-soft: #9aa3b2;
+  --paper: #12161d;
+  --card: #1b212b;
+  --line: #2b3340;
+  --navy: #8fb4e8;
+
+  --good-strong: #4fce9c;
+  --good-strong-bg: #183328;
+  --good: #4fce9c;
+  --good-bg: #17281f;
+  --mid: #e3b462;
+  --mid-bg: #2e2717;
+  --bad: #f2907a;
+  --bad-bg: #301e1b;
+  --popular: #c4a4f7;
+  --popular-bg: #29203f;
+  --favorite: #f299bb;
+  --favorite-bg: #3a2230;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Sarabun', sans-serif;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+[data-theme='dark'] .plate {
+  background: #0e1116;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.app {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 40px 20px 80px;
+}
+
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px 6px 6px;
+  cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.71875rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.theme-toggle .knob {
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--line);
+  position: relative;
+  transition: background 0.2s;
+}
+.theme-toggle .knob::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--navy);
+  transition: transform 0.2s;
+}
+[data-theme='dark'] .theme-toggle .knob::after {
+  transform: translateX(14px);
+}
+
+.font-scale-control {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.71875rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.font-scale-icon {
+  font-family: 'Sarabun', sans-serif;
+  font-weight: 700;
+  color: var(--navy);
+  padding-right: 2px;
+}
+.font-scale-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.font-scale-btn:hover:not(:disabled) {
+  background: var(--navy);
+  color: #fff;
+  border-color: var(--navy);
+}
+.font-scale-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.font-scale-percent {
+  min-width: 3.4em;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .font-scale-control {
+    left: auto;
+    right: 20px;
+    top: 68px;
+  }
+}
+
+.eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  color: var(--navy);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+h1 {
+  font-size: 1.75rem;
+  margin: 0 0 6px;
+  font-weight: 700;
+}
+.sub {
+  color: var(--ink-soft);
+  font-size: 0.90625rem;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.legend {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78125rem;
+  color: var(--ink-soft);
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.form-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 24px;
+}
+.form-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field label {
+  font-size: 0.71875rem;
+  color: var(--ink-soft);
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.04em;
+}
+.field input {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.9375rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  width: 8ch;
+}
+.field.wide input {
+  width: 14ch;
+}
+.form-row button {
+  font-family: 'Sarabun', sans-serif;
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: var(--navy);
+  color: #fff;
+  cursor: pointer;
+}
+.form-row button:hover {
+  opacity: 0.9;
+}
+.form-error {
+  color: var(--bad);
+  font-size: 0.78125rem;
+  margin-top: 10px;
+}
+.toggle-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.favorite-toggle-row {
+  margin-top: 16px;
+}
+.favorite-toggle-label {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.favorite-inputs {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.target-inputs .field input {
+  width: 6ch;
+}
+.field input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.field input[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+.favorite-toggle-row.is-locked .favorite-toggle-label {
+  opacity: 0.55;
+}
+.favorite-lock-note {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 8px;
+}
+
+.target-results-heading {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin: 18px 0 12px;
+}
+.target-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.limit-toggle-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+.limit-toggle-row .limit-buttons {
+  display: flex;
+  gap: 6px;
+}
+.limit-toggle-row .limit-buttons button {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.limit-toggle-row .limit-buttons button.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+.limit-toggle-row .limit-buttons button:hover:not(.active) {
+  opacity: 0.85;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+}
+.card.auction-conflict {
+  border-color: #e3b7a8;
+}
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.plate {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.plate .prov {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  border-left: 1px solid var(--line);
+  padding-left: 10px;
+  line-height: 1.3;
+}
+
+.verdict {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.v-good {
+  background: var(--good-strong-bg);
+  color: var(--good-strong);
+}
+.v-bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  padding: 5px 11px;
+  border-radius: 7px;
+  font-weight: 500;
+}
+.b-good {
+  background: var(--good-bg);
+  color: var(--good-strong);
+}
+.b-mid {
+  background: var(--mid-bg);
+  color: var(--mid);
+}
+.b-bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+
+.favorite-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  padding: 5px 11px;
+  border-radius: 7px;
+  font-weight: 500;
+  background: var(--favorite-bg);
+  color: var(--favorite);
+}
+
+.auction-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--navy);
+  background: #eaeff6;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-left: 8px;
+  letter-spacing: 0.02em;
+}
+[data-theme='dark'] .auction-tag {
+  background: #1c2635;
+}
+
+.popular-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--popular);
+  background: var(--popular-bg);
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-left: 8px;
+  letter-spacing: 0.02em;
+}
+
+details {
+  margin-top: 14px;
+}
+summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--navy);
+  font-weight: 500;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::before {
+  content: '▸';
+  font-size: 0.6875rem;
+  transition: transform 0.15s;
+}
+details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.detail-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+.detail-box {
+  background: var(--paper);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.detail-box .mode-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.detail-box .calc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8125rem;
+  margin-bottom: 6px;
+}
+.detail-box .meaning {
+  font-size: 0.78125rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.tag {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 5px;
+  margin-top: 6px;
+}
+
+.detail-box .explanation {
+  margin: 10px 0 0;
+  font-size: 0.71875rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+.detail-box .explanation-lead {
+  margin: 0 0 8px;
+  font-size: 0.71875rem;
+  font-weight: 600;
+  color: var(--bad);
+  line-height: 1.5;
+}
+.pair-meaning-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pair-meaning-list li {
+  font-size: 0.71875rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.pair-code {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  color: var(--ink);
+}
+.dominant-badge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--navy);
+  background: #eaeff6;
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: 6px;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+[data-theme='dark'] .dominant-badge {
+  background: #1c2635;
+}
+
+.section-note {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin: 28px 0 10px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--line);
+  line-height: 1.6;
+}
+.hidden-summary {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  margin: 14px 0;
+}
+
+@media (max-width: 600px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .card-top {
+    flex-direction: column;
+  }
+}
+
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.nav-brand {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  font-size: 0.875rem;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.nav-brand:hover {
+  color: var(--navy);
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0;
+}
+.nav-tabs button {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78125rem;
+  font-weight: 600;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.nav-tabs button.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+.nav-tabs button:hover:not(.active) {
+  opacity: 0.85;
+}
+
+.ranking-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0 14px;
+  flex-wrap: wrap;
+}
+.ranking-tabs button {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.ranking-tabs button.active {
+  background: var(--good-strong-bg);
+  border-color: var(--good-strong);
+  color: var(--good-strong);
+}
+
+.ranking-table-wrap {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  /* ไม่มี padding ขวา — ไม่งั้นเซลล์ที่เลื่อนผ่านจะโผล่ในช่อง padding ขวาของคอลัมน์ action ที่
+     sticky อยู่ ระยะขอบขวาย้ายไปเป็น padding ของ .ranking-actions-col แทน */
+  padding: 6px 0 10px 14px;
+  overflow-x: auto;
+  /* ใช้เป็น scroll-timeline ให้เงาของคอลัมน์ action โผล่เฉพาะตอนยังเลื่อนไปทางขวาได้อีก */
+  scroll-timeline: --ranking-table-scroll x;
+}
+/* separate + spacing 0 แทน collapse: เส้นขอบของเซลล์ sticky ไม่เลื่อนตามตอน collapse */
+table.ranking-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.8125rem;
+}
+.ranking-table th {
+  text-align: left;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 12px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.ranking-table td {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.ranking-table tr:last-child td {
+  border-bottom: none;
+}
+.ranking-table .rank {
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--ink-soft);
+  width: 3ch;
+}
+.ranking-table .plate-cell {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.ranking-table .score-cell {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  color: var(--navy);
+}
+.ranking-table .badges-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  /* rem เพื่อขยายตาม font scale — badge ยาวตัดบรรทัดในเซลล์แทนดันตารางให้กว้าง แต่ไม่ถูกบีบ
+     แคบจนอ่านยาก (จอแคบ/ฟอนต์ใหญ่ ให้ตารางเลื่อนข้างแทน) */
+  min-width: 11rem;
+  max-width: 18rem;
+}
+/* หัวคอลัมน์ Badge ยาว ถ้า nowrap เหมือน th อื่นจะดันคอลัมน์กว้างเกิน max-width ของ badge */
+.ranking-table th.ranking-badges-col {
+  white-space: normal;
+}
+.ranking-table .badges-cell .badge,
+.ranking-table .badges-cell .favorite-badge {
+  white-space: normal;
+}
+.ranking-tags-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.ranking-tags-cell .auction-tag,
+.ranking-tags-cell .popular-tag {
+  margin-left: 0;
+  white-space: nowrap;
+}
+
+/* คอลัมน์ action: กว้างเท่าเนื้อหา ไม่ถูกบีบ และติดขอบขวาตอนตารางกว้างกว่ากรอบ */
+.ranking-table .ranking-actions-col {
+  width: 1%;
+  white-space: nowrap;
+  padding-right: 14px;
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--card);
+  animation: ranking-actions-edge linear both;
+  animation-timeline: --ranking-table-scroll;
+}
+/* เงาแยกคอลัมน์ action จากเนื้อหาที่ยังซ่อนอยู่ด้านขวา หายเมื่อเลื่อนสุดแล้ว — ถ้าตารางไม่ล้น
+   timeline ไม่ active ไม่มีเงา ส่วนเบราว์เซอร์ที่ไม่รองรับ scroll-driven animation แค่ไม่มีเงา
+   (คอลัมน์ยัง sticky ปุ่มยังเห็นครบ) */
+@keyframes ranking-actions-edge {
+  0%,
+  96% {
+    box-shadow:
+      inset 1px 0 0 var(--line),
+      -10px 0 10px -8px color-mix(in srgb, var(--ink) 28%, transparent);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+.ranking-empty-cell {
+  color: var(--ink-soft);
+}
+.ranking-empty {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  padding: 22px 8px;
+}
+
+.ranking-actions-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ranking-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--navy);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 3px 4px;
+  white-space: nowrap;
+}
+.ranking-expand-btn:hover {
+  opacity: 0.85;
+}
+.ranking-expand-icon {
+  display: inline-block;
+  font-size: 0.6875rem;
+  transition: transform 0.15s;
+}
+.ranking-expand-btn.open .ranking-expand-icon {
+  transform: rotate(90deg);
+}
+.ranking-detail-row td {
+  padding: 4px 10px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.ranking-detail-row .detail-grid {
+  margin-top: 6px;
+}
+
+.landing {
+  max-width: 700px;
+  margin: 32px auto 0;
+  padding: 0 4px 60px;
+}
+.landing-title {
+  font-size: 2.625rem;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+.landing-subtitle {
+  font-size: 1.0625rem;
+  color: var(--ink-soft);
+  margin: 0 0 32px;
+  line-height: 1.6;
+}
+.landing-body p {
+  font-size: 0.9375rem;
+  line-height: 1.85;
+  color: var(--ink);
+  margin: 0 0 18px;
+}
+.landing-quote {
+  margin: 32px 0;
+  padding: 2px 0 2px 22px;
+  border-left: 3px solid var(--navy);
+  font-style: italic;
+  font-size: 1.125rem;
+  line-height: 1.7;
+  color: var(--ink);
+}
+.landing-cta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 36px;
+}
+.landing-cta button {
+  font-family: 'Sarabun', sans-serif;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  padding: 13px 26px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.landing-cta .cta-primary {
+  background: var(--navy);
+  color: #fff;
+  border: none;
+}
+.landing-cta .cta-primary:hover {
+  opacity: 0.9;
+}
+.landing-cta .cta-secondary {
+  background: transparent;
+  color: var(--navy);
+  border: 1.5px solid var(--navy);
+}
+.landing-cta .cta-secondary:hover {
+  background: #eaeff6;
+}
+[data-theme='dark'] .landing-cta .cta-secondary:hover {
+  background: #1c2635;
+}
+
+@media (max-width: 600px) {
+  .landing-title {
+    font-size: 1.875rem;
+  }
+  .landing-quote {
+    font-size: 1rem;
+  }
+  .landing-cta {
+    flex-direction: column;
+  }
+  .landing-cta button {
+    width: 100%;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   ธาตุจีน 5 ธาตุ (Wu Xing) — ระบบแยกต่างหากจากเลขศาสตร์ไทย ใช้ --bad (แดง)
+   และ --mid (ทอง) ที่มีอยู่แล้วในธีมเป็น accent "แดง-ทอง" สไตล์จีน แทนที่จะ
+   สร้างสีใหม่ โครง layout/font ยังเป็น family เดียวกับแอปทั้งหมด
+   --------------------------------------------------------------------- */
+.five-element-link-row {
+  margin-top: 16px;
+}
+.five-element-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.78125rem;
+  font-weight: 500;
+  color: var(--navy);
+}
+.five-element-link:hover {
+  opacity: 0.85;
+}
+
+.ayatana6-preview-row {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.ayatana6-inline-result {
+  margin: 0 0 8px;
+}
+.ayatana6-inline-title {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: var(--good-strong);
+  margin-bottom: 4px;
+}
+.ayatana6-inline-meaning {
+  font-size: 0.75rem;
+  color: var(--good-strong);
+  line-height: 1.6;
+}
+.ayatana6-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.78125rem;
+  font-weight: 500;
+  color: var(--navy);
+}
+.ayatana6-link:hover {
+  opacity: 0.85;
+}
+
+.compare-cta-row {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.compare-cta-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.78125rem;
+  font-weight: 500;
+  color: var(--navy);
+}
+.compare-cta-link:hover {
+  opacity: 0.85;
+}
+
+.birthday-compat-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--navy);
+  white-space: nowrap;
+}
+.birthday-compat-link:hover {
+  opacity: 0.85;
+}
+
+/* ปุ่มกลับเด่นๆ ที่หัวหน้าธาตุจีน/อายตนะ6 — ชั้นที่ 1 ของการแก้ปัญหาปุ่ม back ของเบราว์เซอร์
+   หลุดออกจากแอป ใช้ร่วมกันทั้ง 2 หน้า */
+.detail-page-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--navy);
+}
+.detail-page-back-link:hover {
+  opacity: 0.85;
+}
+
+.five-element-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+.five-element-eyebrow {
+  color: var(--mid);
+}
+.five-element-disclaimer {
+  margin: 14px 0 26px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--bad);
+  background: var(--bad-bg);
+  color: var(--ink);
+  font-size: 0.84375rem;
+  line-height: 1.7;
+  border-radius: 0 8px 8px 0;
+}
+.five-element-empty {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  padding: 20px 0;
+}
+
+.five-element-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 24px;
+}
+.five-element-plate {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-bottom: 18px;
+}
+.five-element-tail-note {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.five-element-verdict-banner {
+  border-left: 3px solid transparent;
+  border-radius: 0 10px 10px 0;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+}
+.five-element-verdict-title {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  margin-bottom: 4px;
+}
+.five-element-verdict-detail {
+  font-size: 0.78125rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+.five-element-section {
+  margin-bottom: 20px;
+}
+.five-element-section-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mid);
+  margin-bottom: 10px;
+}
+.five-element-section p {
+  font-size: 0.84375rem;
+  color: var(--ink);
+  line-height: 1.6;
+  margin: 0;
+}
+.five-element-section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.five-element-digits {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.five-element-digit-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 64px;
+}
+.five-element-digit-chip .digit {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.five-element-digit-chip .element {
+  font-size: 0.71875rem;
+  color: var(--mid);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.five-element-pairs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.five-element-pairs li {
+  font-size: 0.84375rem;
+  color: var(--ink);
+  line-height: 1.6;
+}
+.five-element-pair-el {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 600px) {
+  .five-element-section-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   อายตนะ6 — ศาสตร์สายเดียวกับเลขศาสตร์/ทักษาไทย (Mode 1-3) ใช้โทน --navy/--good-strong
+   เดิมของแอปแทนโทนแดง-ทองแบบธาตุจีน เพื่อสื่อสารด้วยภาพว่าเป็นตระกูลเดียวกัน
+   --------------------------------------------------------------------- */
+.ayatana6-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+.ayatana6-eyebrow {
+  color: var(--navy);
+}
+.ayatana6-intro {
+  margin: 14px 0 26px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--good-strong);
+  background: var(--good-strong-bg);
+  color: var(--ink);
+  font-size: 0.84375rem;
+  line-height: 1.7;
+  border-radius: 0 8px 8px 0;
+}
+.ayatana6-empty {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  padding: 20px 0;
+}
+
+.ayatana6-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 24px;
+}
+.ayatana6-plate {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-bottom: 18px;
+}
+
+.ayatana6-result-banner {
+  border-left: 3px solid var(--navy);
+  background: var(--good-strong-bg);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+}
+.ayatana6-result-title {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+.ayatana6-result-meaning {
+  font-size: 0.8125rem;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.ayatana6-section {
+  margin-bottom: 20px;
+}
+.ayatana6-section-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 10px;
+}
+.ayatana6-section p {
+  font-size: 0.84375rem;
+  color: var(--ink);
+  line-height: 1.6;
+  margin: 0;
+}
+.ayatana6-section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.ayatana6-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ayatana6-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.84375rem;
+}
+.ayatana6-chip .value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ayatana6-star {
+  font-family: 'Sarabun', sans-serif;
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+.ayatana6-chip .power {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+  color: var(--good-strong);
+}
+
+@media (max-width: 600px) {
+  .ayatana6-section-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field select {
+  font-family: 'Sarabun', sans-serif;
+  font-size: 0.9375rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------------
+   ถอดรหัสทะเบียนตามวันเกิด (Mode 6 ทักษาปกรณ์/กาลกิณี + Mode 7 พลังเงา) — ต้องมีวันเกิด
+   เจ้าของ ใช้โทน --navy/--good-strong เดิม (ศาสตร์สายเดียวกับเลขศาสตร์ไทย/อายตนะ6) ไม่ใช่
+   โทนแดง-ทองแบบธาตุจีน
+   --------------------------------------------------------------------- */
+.birthday-compat-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-bottom: 40px;
+}
+.birthday-compat-eyebrow {
+  color: var(--navy);
+}
+.birthday-compat-disclaimer {
+  margin: 14px 0 26px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--navy);
+  background: var(--good-strong-bg);
+  color: var(--ink);
+  font-size: 0.84375rem;
+  line-height: 1.7;
+  border-radius: 0 8px 8px 0;
+}
+.birthday-compat-empty {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  padding: 20px 0;
+}
+.birthday-compat-date-row {
+  margin-top: 14px;
+}
+.birthday-compat-wednesday-row {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+.birthday-compat-wednesday-row .limit-buttons {
+  display: flex;
+  gap: 6px;
+}
+.birthday-compat-wednesday-row .limit-buttons button {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.birthday-compat-wednesday-row .limit-buttons button.active {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+.birthday-compat-weekday-note {
+  margin-top: 12px;
+  font-size: 0.78125rem;
+  color: var(--ink-soft);
+}
+
+.birthday-compat-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+}
+.birthday-compat-section-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 12px;
+}
+.birthday-compat-verdict-banner {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 8px 16px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+.birthday-compat-verdict-banner.good {
+  background: var(--good-strong-bg);
+  color: var(--good-strong);
+}
+.birthday-compat-verdict-banner.bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.birthday-compat-letter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.birthday-compat-letter-list li {
+  font-size: 0.84375rem;
+  color: var(--ink);
+  line-height: 1.6;
+}
+.birthday-compat-avoid-tag {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--bad);
+  background: var(--bad-bg);
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.birthday-compat-total-power {
+  margin-top: 14px;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--navy);
+}
+.birthday-compat-shadow-note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--mid-bg);
+  border-left: 3px solid var(--mid);
+  border-radius: 0 8px 8px 0;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------------
+   เปรียบเทียบทะเบียน — แท็บที่ 4 จำกัดไว้ที่ 2 ช่องตอนนี้ (MAX_COMPARE_SLOTS ใน
+   ComparePage.tsx) แต่ .compare-grid ใช้ grid-template-columns แบบ dynamic (inline style
+   จาก JS ตามจำนวนช่องจริง) เพื่อขยายเป็น 5/10 ช่องในอนาคตได้โดยไม่ต้องแก้ CSS นี้เลย —
+   ยกเว้น media query ด้านล่างที่บังคับ 1 คอลัมน์บนจอมือถือเสมอไม่ว่าจะกี่ช่อง
+   --------------------------------------------------------------------- */
+.compare-page {
+  padding-bottom: 20px;
+}
+.compare-grid {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+.compare-form-grid {
+  margin-bottom: 20px;
+}
+.compare-slot-form {
+  margin-bottom: 0;
+}
+.compare-slot-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 12px;
+}
+.compare-winner-banner {
+  background: var(--good-strong-bg);
+  color: var(--good-strong);
+  border-left: 3px solid var(--good-strong);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 18px;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  margin-bottom: 20px;
+}
+.compare-result-grid {
+  margin-bottom: 10px;
+}
+.compare-column {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px 22px;
+}
+.compare-column.winner {
+  border-color: var(--good-strong);
+}
+.compare-column-header .plate {
+  margin: 8px 0;
+}
+.compare-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+.compare-rank-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+}
+.compare-rank-badge.best {
+  background: var(--good-strong-bg);
+  color: var(--good-strong);
+  border-color: var(--good-strong);
+}
+.compare-score-line {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.compare-supplementary {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.compare-supplementary-note {
+  font-size: 0.71875rem;
+  font-weight: 600;
+  color: var(--mid);
+  margin-bottom: 10px;
+}
+.compare-supplementary-block {
+  margin-bottom: 12px;
+}
+.compare-supplementary-block:last-child {
+  margin-bottom: 0;
+}
+.compare-supplementary-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+@media (max-width: 700px) {
+  .compare-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+system_requirements_v6.docx
+IMPLEMENTATION_BRIEF.md
+ui_mockup_verdict_badge.html
+five_element_plate.py

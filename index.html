@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Apply the saved font-scale (Accessibility Font Scale) to <html> before first
+      // paint, so the page never flashes at the wrong text size on reload. Mirrors the
+      // level table in src/hooks/useFontScale.ts — keep both in sync if levels change.
+      (function () {
+        try {
+          var SCALE_PX = { normal: 16, large: 18, xlarge: 20, xxlarge: 24, xxxlarge: 28 };
+          var saved = window.localStorage.getItem('fontScale');
+          var px = SCALE_PX[saved] || 16;
+          document.documentElement.style.fontSize = px + 'px';
+        } catch (e) {
+          // localStorage อาจใช้ไม่ได้ (private mode ฯลฯ) — ปล่อยให้ใช้ default 16px ของเบราว์เซอร์
+        }
+      })();
+    </script>
+    <title>ผลการวิเคราะห์เลขทะเบียน</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
