@@ -6,7 +6,7 @@ import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
 import { detectAuctionNumber } from '../engine/auctionNumber';
 import { PlateImage } from './PlateImage';
-import { plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
+import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
 import { plateCopyText } from './plateCopy';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
@@ -52,6 +52,7 @@ export function ComparisonResultCard({
             variant={plateVariantFor(detectAuctionNumber(result.input.tailDigits))}
             provinceLabel={resolvePlateProvinceLabel(result.input)}
             copyText={plateCopyText(result.input)}
+            provinceNote={plateProvinceNote(result.input)}
           />
         )}
         {/* ชิปเลขทะเบียนแสดงเฉพาะเมื่อไม่มีภาพป้าย (เช่น โหมด "เลขที่เล็งไว้" ของ Batch) — ชิปนี้ไม่มีแท็กอื่น */}

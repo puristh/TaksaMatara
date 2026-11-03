@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { provincePlaceholder } from './plateLayout';
 import type { PlateInput } from '../engine';
 import { isOptionalFrontDigitField, parseOptionalFrontDigit } from '../engine/plateText';
 
@@ -140,7 +141,13 @@ export function PlateForm({ onSubmit }: PlateFormProps) {
         </div>
         <div className="field wide">
           <label htmlFor="province">จังหวัด (ไม่บังคับ)</label>
-          <input id="province" value={province} onChange={(e) => setProvince(e.target.value)} />
+          <input
+            id="province"
+            className="province-input"
+            value={province}
+            placeholder={provincePlaceholder()}
+            onChange={(e) => setProvince(e.target.value)}
+          />
         </div>
         <button type="submit">วิเคราะห์ทะเบียน</button>
       </div>

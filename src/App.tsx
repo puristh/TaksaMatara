@@ -184,8 +184,11 @@ export default function App() {
 
   return (
     <div className="app">
-      <ThemeToggle theme={theme} onToggle={toggleTheme} />
-      <FontScaleControl />
+      {/* แถบเครื่องมืออยู่ในลำดับปกติของหน้า (ไม่ลอย) — ดู .app-toolbar ใน theme.css */}
+      <div className="app-toolbar">
+        <FontScaleControl />
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+      </div>
 
       {view !== 'landing' && (
         <div className="nav-bar">

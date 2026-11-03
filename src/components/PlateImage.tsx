@@ -12,6 +12,8 @@ interface PlateImageProps extends Pick<PlateInput, 'frontDigit' | 'thaiLetters' 
   provinceLabel?: string | null;
   /** ข้อความที่ปุ่ม "คัดลอก" คัดลอก (ดู plateCopyText) — ไม่ส่งมา = เลขทะเบียนอย่างเดียว */
   copyText?: string;
+  /** ข้อความเล็กต่อท้าย "ภาพจำลอง ไม่ใช่ป้ายจริง" เช่น "จังหวัดในภาพ: ค่าเริ่มต้น" (ดู plateProvinceNote) */
+  provinceNote?: string | null;
   className?: string;
 }
 
@@ -86,6 +88,7 @@ export const PlateImage = memo(function PlateImage({
   variant,
   provinceLabel,
   copyText,
+  provinceNote,
   className,
 }: PlateImageProps) {
   const rawId = useId();
@@ -215,6 +218,7 @@ export const PlateImage = memo(function PlateImage({
       </svg>
       <figcaption className="plate-figure__caption">
         <span className="plate-figure__note">ภาพจำลอง ไม่ใช่ป้ายจริง</span>
+        {provinceNote && <span className="plate-figure__note plate-figure__province-note">· {provinceNote}</span>}
         <button
           type="button"
           className="plate-copy-btn"

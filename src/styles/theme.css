@@ -94,14 +94,27 @@ body {
 .app {
   max-width: 880px;
   margin: 0 auto;
-  padding: 40px 20px 80px;
+  /* safe-area (iOS ติ่ง/มุมโค้ง, ใช้ร่วมกับ viewport-fit=cover ใน index.html) — ไม่น้อยกว่าระยะเดิม */
+  padding: calc(16px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) 80px
+    max(20px, env(safe-area-inset-left, 0px));
+}
+
+/* แถบเครื่องมือบนสุด (ขนาดตัวอักษร / โหมดสี) — อยู่ในลำดับปกติของหน้า ไม่ลอย จึงไม่ทับเนื้อหา
+   ในทุกขนาดจอและทุกตำแหน่งเลื่อน (เดิม position: fixed ทับแถบเมนู/หัวข้อ/ฟอร์ม) */
+.app-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
 }
 
 .theme-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
   display: flex;
+  min-height: 44px;
+  margin-left: auto;
+  box-sizing: border-box;
   align-items: center;
   gap: 8px;
   background: var(--card);
@@ -113,7 +126,6 @@ body {
   font-size: 0.71875rem;
   font-weight: 600;
   color: var(--ink-soft);
-  z-index: 10;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .theme-toggle .knob {
@@ -140,21 +152,17 @@ body {
 }
 
 .font-scale-control {
-  position: fixed;
-  top: 20px;
-  left: 20px;
   display: flex;
   align-items: center;
   gap: 6px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 0 4px 0 12px;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.71875rem;
   font-weight: 600;
   color: var(--ink-soft);
-  z-index: 10;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .font-scale-icon {
@@ -164,25 +172,43 @@ body {
   padding-right: 2px;
 }
 .font-scale-btn {
+  /* พื้นที่กด 44×44px (แนวทางจอสัมผัส) — วงกลมที่มองเห็นเล็กกว่าผ่าน ::before */
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  min-height: 22px;
-  padding: 2px 6px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--paper);
+  background: transparent;
   color: var(--ink);
   cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 700;
   line-height: 1;
 }
+.font-scale-btn::before {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  z-index: -1;
+}
 .font-scale-btn:hover:not(:disabled) {
-  background: var(--navy);
   color: #fff;
+}
+.font-scale-btn:hover:not(:disabled)::before {
+  background: var(--navy);
   border-color: var(--navy);
+}
+.font-scale-btn:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: -4px;
 }
 .font-scale-btn:disabled {
   opacity: 0.35;
@@ -193,13 +219,6 @@ body {
   text-align: center;
 }
 
-@media (max-width: 600px) {
-  .font-scale-control {
-    left: auto;
-    right: 20px;
-    top: 68px;
-  }
-}
 
 .eyebrow {
   font-family: 'IBM Plex Mono', monospace;
@@ -281,6 +300,27 @@ h1 {
 }
 .field.wide input {
   width: 14ch;
+}
+/* ช่องจังหวัด: กว้างพอให้ placeholder "ค่าเริ่มต้น: …" อ่านได้ทั้งบรรทัด แต่ไม่เกินความกว้างแถว
+   (จอแคบ/ตัวอักษรใหญ่ หดตามพื้นที่ แล้วตัดท้าย placeholder ด้วย … แทนการดันฟอร์มให้ล้น) */
+.field.wide:has(> .province-input) {
+  min-width: 0;
+  max-width: 100%;
+}
+.field.wide input.province-input {
+  width: 17rem;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+/* placeholder ต้องดูต่างจากค่าที่พิมพ์จริง: ค่าจริงเป็น monospace สีเข้ม, placeholder เป็นตัวเอนสีจาง
+   --ink-soft บนพื้น --paper คอนทราสต์ ≥ 4.5:1 ทั้งสองโหมด */
+.province-input::placeholder {
+  color: var(--ink-soft);
+  opacity: 1;
+  font-family: 'Sarabun', sans-serif;
+  font-style: italic;
+  /* เล็กกว่าค่าที่พิมพ์เล็กน้อย ให้ทั้งบรรทัดพอดีช่องที่ 390px / 175% (การ์ดเหลือที่ ~300px) */
+  font-size: 0.8125rem;
 }
 .form-row button {
   font-family: 'Sarabun', sans-serif;

@@ -6,7 +6,7 @@ import { ModeDetailPanel } from './ModeDetailPanel';
 import { ComparisonResultCard } from './ComparisonResultCard';
 import { PlateImage } from './PlateImage';
 import { plateCopyText } from './plateCopy';
-import { plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
+import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
 import { comparePlates } from '../engine/comparePlates';
 import type { ComparisonResult } from '../engine/comparePlates';
 import type { PlateInput } from '../engine';
@@ -625,6 +625,7 @@ export function RankingPanel({
                                 variant={plateVariantFor(c.auction)}
                                 provinceLabel={resolvePlateProvinceLabel(c.input)}
                                 copyText={plateCopyText(c.input)}
+                                provinceNote={plateProvinceNote(c.input)}
                               />
                               <ModeDetailPanel
                                 input={c.input}

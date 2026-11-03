@@ -304,6 +304,23 @@ export function resolvePlateProvinceLabel(
   return typed ? typed : defaultLabel;
 }
 
+/** placeholder ของช่อง "จังหวัด (ไม่บังคับ)" — บอกค่าเริ่มต้นที่ภาพป้ายจะใช้ (ไม่ใช่ค่าของช่อง)
+ * ไม่มี placeholder เมื่อปิดบรรทัดจังหวัดทั้งระบบ (PLATE_IMAGE_DEFAULT_PROVINCE = null) */
+export function provincePlaceholder(
+  defaultLabel: string | null = PLATE_IMAGE_DEFAULT_PROVINCE,
+): string | undefined {
+  return defaultLabel === null ? undefined : `ค่าเริ่มต้น: ${defaultLabel}`;
+}
+
+/** ข้อความเล็กใต้ภาพป้ายเมื่อจังหวัดบนภาพเป็นค่าเริ่มต้น (ผู้ใช้ไม่ได้พิมพ์เอง) — null = ไม่แสดง */
+export function plateProvinceNote(
+  input: Pick<PlateInput, 'province'>,
+  defaultLabel: string | null = PLATE_IMAGE_DEFAULT_PROVINCE,
+): string | null {
+  if (defaultLabel === null) return null;
+  return input.province?.trim() ? null : 'จังหวัดในภาพ: ค่าเริ่มต้น';
+}
+
 export interface PlateLayoutInput extends Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'> {
   variant: PlateVariant;
   provinceLabel?: string | null;

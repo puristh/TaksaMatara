@@ -2,7 +2,7 @@ import type { PlateInput, PlateVerdict } from '../engine';
 import { ModeDetailPanel } from './ModeDetailPanel';
 import type { ReturnContext } from './RankingPanel';
 import { PlateImage } from './PlateImage';
-import { plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
+import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
 import { plateCopyText } from './plateCopy';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
@@ -76,6 +76,7 @@ export function ResultCard({
             variant={plateVariantFor(auction)}
             provinceLabel={provinceLabel}
             copyText={plateCopyText(input)}
+            provinceNote={plateProvinceNote(input)}
           />
           {/* ชิปเลขทะเบียนเดิมเอาออกเพราะซ้ำกับภาพป้าย — แท็กที่ภาพป้ายไม่มีย้ายมาอยู่ข้าง/ใต้ภาพ */}
           {hasPlateTags && (
