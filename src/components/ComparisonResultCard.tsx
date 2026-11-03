@@ -7,6 +7,7 @@ import type { PlateInput } from '../engine';
 import { detectAuctionNumber } from '../engine/auctionNumber';
 import { PlateImage } from './PlateImage';
 import { plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
+import { plateCopyText } from './plateCopy';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -50,9 +51,11 @@ export function ComparisonResultCard({
             tailDigits={result.input.tailDigits}
             variant={plateVariantFor(detectAuctionNumber(result.input.tailDigits))}
             provinceLabel={resolvePlateProvinceLabel(result.input)}
+            copyText={plateCopyText(result.input)}
           />
         )}
-        <div className="plate">{plateText}</div>
+        {/* ชิปเลขทะเบียนแสดงเฉพาะเมื่อไม่มีภาพป้าย (เช่น โหมด "เลขที่เล็งไว้" ของ Batch) — ชิปนี้ไม่มีแท็กอื่น */}
+        {!showPlateImage && <div className="plate">{plateText}</div>}
         <div className="compare-rank-row">
           <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>
           <span className={`verdict ${result.mode1.verdict ? 'v-good' : 'v-bad'}`}>

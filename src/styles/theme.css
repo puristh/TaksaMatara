@@ -1654,15 +1654,83 @@ table.ranking-table {
 .plate-image__text {
   font-family: 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
   font-weight: 800;
+  /* ข้อความซ้อน 3 ชั้น (ตัวนูน) — ห้ามลากเลือก ไม่งั้นได้เลขซ้ำ 3 รอบ ใช้ปุ่ม "คัดลอก" แทน */
+  -webkit-user-select: none;
+  user-select: none;
 }
 .plate-image__province {
   font-family: 'PlateThaiProvince', 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
 }
+/* แถวใต้ป้าย: "ภาพจำลอง ไม่ใช่ป้ายจริง" + ปุ่มคัดลอก (พื้นที่กด ≥ 44px แต่ดูเป็นปุ่มเล็ก) + สถานะ */
+.plate-figure__caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 4px;
+  margin-top: 2px;
+}
 .plate-figure__note {
-  margin-top: 6px;
   font-size: 0.6875rem;
   color: var(--ink-soft);
   line-height: 1.4;
+}
+.plate-copy-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 8px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: var(--navy);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.plate-copy-btn:hover {
+  color: var(--ink);
+}
+.plate-copy-btn:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: -6px;
+  border-radius: 8px;
+}
+.plate-copy-status {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--good-strong);
+}
+.plate-copy-status:empty {
+  display: none;
+}
+.plate-copy-status.failed {
+  flex-basis: 100%;
+  color: var(--bad);
+  font-weight: 500;
+  -webkit-user-select: text;
+  user-select: text;
+}
+/* เลขทะเบียนที่ให้คัดลอกเองไม่ตัดกลางบรรทัด */
+.plate-copy-manual {
+  white-space: nowrap;
+}
+
+/* แท็กเลขประมูล/เลขสวย ที่ย้ายมาจากชิปเลขทะเบียนเดิม — อยู่ข้าง/ใต้ภาพป้าย */
+.plate-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.plate-tags .auction-tag {
+  margin-left: 0;
+}
+.plate-tags .prov {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
 }
 
 /* ResultCard: ป้ายอยู่ส่วนหัวคู่กับข้อความทะเบียนเดิม */

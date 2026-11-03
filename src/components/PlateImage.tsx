@@ -1,15 +1,22 @@
-import { memo, useId, useMemo } from 'react';
+import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { PlateInput } from '../engine/types';
 import { PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
 import { buildPlateLayout, PLATE_H, PLATE_LAYOUT, PLATE_W } from './plateLayout';
 import type { PlateTextLine, PlateVariant } from './plateLayout';
+import { browserCopyEnv, copyPlateText, copyStatusMessage } from './plateCopy';
+import type { CopyStatus } from './plateCopy';
 
 interface PlateImageProps extends Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'> {
   variant: PlateVariant;
   /** undefined = ค่าเริ่มต้น (PLATE_IMAGE_DEFAULT_PROVINCE), null = ไม่แสดงบรรทัดจังหวัด */
   provinceLabel?: string | null;
+  /** ข้อความที่ปุ่ม "คัดลอก" คัดลอก (ดู plateCopyText) — ไม่ส่งมา = เลขทะเบียนอย่างเดียว */
+  copyText?: string;
   className?: string;
 }
+
+/** เวลาที่ข้อความ "คัดลอกแล้ว" ค้างอยู่ (ms) — ข้อความคัดลอกไม่สำเร็จค้างไว้จนกดใหม่ */
+const COPIED_MESSAGE_MS = 2000;
 
 /** เลเยอร์ตัวนูน: เงาล่างขวา → ไฮไลต์บนซ้าย → ตัวจริง (ไม่ใช้ SVG filter เพื่อให้เบาเครื่อง) */
 const EMBOSS_LAYERS = [
@@ -78,6 +85,7 @@ export const PlateImage = memo(function PlateImage({
   tailDigits,
   variant,
   provinceLabel,
+  copyText,
   className,
 }: PlateImageProps) {
   const rawId = useId();
@@ -96,6 +104,22 @@ export const PlateImage = memo(function PlateImage({
       }),
     [frontDigit, letter1, letter2, tailDigits, variant, resolvedProvince],
   );
+
+  const textToCopy = copyText ?? layout.plateText;
+  const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+    },
+    [],
+  );
+  const onCopy = async () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+    const ok = await copyPlateText(textToCopy, browserCopyEnv());
+    setCopyStatus(ok ? 'copied' : 'failed');
+    if (ok) resetTimer.current = setTimeout(() => setCopyStatus('idle'), COPIED_MESSAGE_MS);
+  };
 
   const bgId = `plate-bg-${id}`;
   const clipId = `plate-clip-${id}`;
@@ -189,7 +213,31 @@ export const PlateImage = memo(function PlateImage({
           )}
         </g>
       </svg>
-      <figcaption className="plate-figure__note">ภาพจำลอง ไม่ใช่ป้ายจริง</figcaption>
+      <figcaption className="plate-figure__caption">
+        <span className="plate-figure__note">ภาพจำลอง ไม่ใช่ป้ายจริง</span>
+        <button
+          type="button"
+          className="plate-copy-btn"
+          onClick={onCopy}
+          aria-label={`คัดลอกเลขทะเบียน ${textToCopy}`}
+        >
+          คัดลอก
+        </button>
+        <span
+          className={`plate-copy-status${copyStatus === 'failed' ? ' failed' : ''}`}
+          role="status"
+          aria-live="polite"
+        >
+          {copyStatus === 'failed' ? (
+            <>
+              {copyStatusMessage('failed', '')}
+              <span className="plate-copy-manual">{textToCopy}</span>
+            </>
+          ) : (
+            copyStatusMessage(copyStatus, textToCopy)
+          )}
+        </span>
+      </figcaption>
     </figure>
   );
 });
