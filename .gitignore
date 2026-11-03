@@ -8,3 +8,6 @@ system_requirements_v6.docx
 IMPLEMENTATION_BRIEF.md
 ui_mockup_verdict_badge.html
 five_element_plate.py
+
+# ภาพอ้างอิงป้ายจริง (ภาพของผู้อื่น ใช้วัดค่าภายในเครื่องเท่านั้น ห้าม commit)
+ref/

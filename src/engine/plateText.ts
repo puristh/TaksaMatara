@@ -13,14 +13,31 @@ export function plateNumberDigits(input: Pick<PlateInput, 'frontDigit' | 'tailDi
   return input.frontDigit === null ? tail : [String(input.frontDigit), ...tail];
 }
 
+export interface PlateTextParts {
+  /** null = ไม่มีเลขหน้า (ไม่ใช่ "0") */
+  front: string | null;
+  letters: string;
+  tail: string;
+}
+
+/** แยกทะเบียนเป็นส่วนๆ ในรูปข้อความ — แหล่งเดียวของกติกา null-vs-0 ที่ทั้ง formatPlateText และ
+ * ภาพจำลองป้าย (PlateImage) ใช้ร่วมกัน */
+export function plateTextParts(
+  input: Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>,
+): PlateTextParts {
+  return {
+    front: input.frontDigit === null ? null : String(input.frontDigit),
+    letters: input.thaiLetters.join(''),
+    tail: input.tailDigits,
+  };
+}
+
 /** ข้อความทะเบียนสำหรับแสดงผล เช่น "1 กข 59" หรือ "ศร 91" (ไม่มีเลขหน้า ไม่มีช่องว่างนำหน้า) */
 export function formatPlateText(
   input: Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>,
 ): string {
-  const letters = input.thaiLetters.join('');
-  return input.frontDigit === null
-    ? `${letters} ${input.tailDigits}`
-    : `${input.frontDigit} ${letters} ${input.tailDigits}`;
+  const { front, letters, tail } = plateTextParts(input);
+  return front === null ? `${letters} ${tail}` : `${front} ${letters} ${tail}`;
 }
 
 /** ช่องกรอกเลขหน้าแบบไม่บังคับ: ว่าง = ไม่มีเลขหน้า, ไม่งั้นต้องเป็นเลข 0-9 หนึ่งหลัก */

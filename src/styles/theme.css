@@ -1597,3 +1597,103 @@ table.ranking-table {
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ---------------------------------------------------------------------
+   ภาพจำลองป้ายทะเบียน (PlateImage.tsx)
+   ฟอนต์: Noto Sans Thai Looped (SIL OFL 1.1, ดู src/assets/fonts/NotoSansThaiLooped-OFL.txt)
+   ตัด instance คงที่จากแกนของฟอนต์ต้นฉบับ (ไม่ได้แก้ glyph) แล้ว subset เหลือเฉพาะอักษรไทย
+   + เลข 0-9 + ช่องว่าง: บรรทัดหลัก wght 800 / wdth 70, บรรทัดจังหวัด wght 800 / wdth 80
+   (ฟอนต์นี้ไม่มี Reserved Font Name จึงคงชื่อเดิมได้ตาม OFL ข้อ 3)
+   ฝังในโปรเจกต์เอง ไม่โหลดจากภายนอก — font-display: block เพราะตำแหน่งข้อความบนป้ายคำนวณ
+   จากความกว้าง glyph ของฟอนต์นี้ (plateLayout.ts) ไม่อยากให้ฟอนต์สำรองโผล่แล้วเลื่อน
+   ขนาดป้ายใช้ px (ไม่ใช่ rem) เพราะป้ายเป็นวัตถุกายภาพ ไม่ตาม font scale ของระบบ
+   --------------------------------------------------------------------- */
+@font-face {
+  font-family: 'PlateThai';
+  src: url('../assets/fonts/NotoSansThaiLooped-PlateSubset-wdth70.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'PlateThaiProvince';
+  src: url('../assets/fonts/NotoSansThaiLooped-PlateSubset-wdth80.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+}
+.plate-figure {
+  margin: 0;
+  width: 100%;
+  max-width: var(--plate-max-width, 352px);
+  min-width: 0;
+}
+.plate-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* มุมโค้งตรงกับ rx=14 ของ viewBox 440x188 — เงานอกป้ายให้เห็นขอบบนพื้นขาวในโหมดสว่าง */
+  border-radius: 3.2% / 7.4%;
+  box-shadow:
+    0 1px 2px rgba(28, 36, 48, 0.14),
+    0 3px 10px rgba(28, 36, 48, 0.1);
+}
+/* โหมดมืด: ตัวป้ายคงสีเดิม (วัตถุจริง) — ลดความโดดด้วยวงขอบสีเส้นของธีมแทนเงาดำ */
+[data-theme='dark'] .plate-image {
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .plate-image {
+    box-shadow:
+      0 0 0 1px var(--line),
+      0 2px 8px rgba(0, 0, 0, 0.45);
+  }
+}
+.plate-image__text {
+  font-family: 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
+  font-weight: 800;
+}
+.plate-image__province {
+  font-family: 'PlateThaiProvince', 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
+}
+.plate-figure__note {
+  margin-top: 6px;
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+/* ResultCard: ป้ายอยู่ส่วนหัวคู่กับข้อความทะเบียนเดิม */
+.card-plate-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.card-plate-head .plate-figure {
+  --plate-max-width: 260px;
+  flex: 0 1 260px;
+}
+
+/* หน้าเปรียบเทียบ: ป้ายทุกใบต้องขนาดเท่ากัน — คอลัมน์ 1fr กว้างไม่เท่ากันได้เมื่อเนื้อหาของ
+   ใบหนึ่งกว้างกว่า (เดิมอยู่แล้ว) จึงผูกขนาดป้ายกับความกว้างจอ ไม่ใช่ความกว้างคอลัมน์ ตอนแสดง
+   คู่กัน (>700px ตรงกับ media query ของ .compare-grid) — มือถือซ้อนแนวตั้งใช้ 300px/100% */
+.compare-column-header .plate-figure {
+  --plate-max-width: 300px;
+  margin: 4px 0 6px;
+}
+@media (min-width: 701px) {
+  .compare-column-header .plate-figure {
+    --plate-max-width: min(300px, calc(50vw - 100px));
+  }
+}
+
+/* แถวที่กางรายละเอียดใน Batch — อยู่เหนือ ModeDetailPanel */
+.ranking-detail-plate {
+  --plate-max-width: 240px;
+  margin: 8px 0 4px;
+}

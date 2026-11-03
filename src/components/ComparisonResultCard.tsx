@@ -4,6 +4,9 @@ import { ModeDetailPanel } from './ModeDetailPanel';
 import { formatPlateText } from '../engine/plateText';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
+import { detectAuctionNumber } from '../engine/auctionNumber';
+import { PlateImage } from './PlateImage';
+import { plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -16,6 +19,9 @@ interface ComparisonResultCardProps {
   onViewAyatana6?: (input: DetailModeInput) => void;
   /** ปุ่ม/ลิงก์เพิ่มเติมใต้บรรทัดคะแนน เช่น "เช็คกับวันเกิด →" ของหน้า Batch */
   headerExtra?: ReactNode;
+  /** แสดงภาพจำลองป้ายทะเบียนในหัวการ์ด — เปิดเฉพาะหน้าเปรียบเทียบ (ComparePage) ในเฟสนี้
+   * โหมด "เลขที่เล็งไว้" ของ Batch ที่ใช้การ์ดเดียวกันยังไม่แสดง */
+  showPlateImage?: boolean;
 }
 
 /**
@@ -29,6 +35,7 @@ export function ComparisonResultCard({
   onViewFiveElement,
   onViewAyatana6,
   headerExtra,
+  showPlateImage = false,
 }: ComparisonResultCardProps) {
   const plateText = formatPlateText(result.input);
 
@@ -36,6 +43,15 @@ export function ComparisonResultCard({
     <div className={`compare-column${isWinner ? ' winner' : ''}`}>
       <div className="compare-column-header">
         <div className="compare-slot-label">{label}</div>
+        {showPlateImage && (
+          <PlateImage
+            frontDigit={result.input.frontDigit}
+            thaiLetters={result.input.thaiLetters}
+            tailDigits={result.input.tailDigits}
+            variant={plateVariantFor(detectAuctionNumber(result.input.tailDigits))}
+            provinceLabel={resolvePlateProvinceLabel(result.input)}
+          />
+        )}
         <div className="plate">{plateText}</div>
         <div className="compare-rank-row">
           <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>

@@ -1,0 +1,179 @@
+import { memo, useId, useMemo } from 'react';
+import type { PlateInput } from '../engine/types';
+import { PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
+import { buildPlateLayout, PLATE_H, PLATE_W } from './plateLayout';
+import type { PlateTextLine, PlateVariant } from './plateLayout';
+
+interface PlateImageProps extends Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'> {
+  variant: PlateVariant;
+  /** undefined = ค่าเริ่มต้น (PLATE_IMAGE_DEFAULT_PROVINCE), null = ไม่แสดงบรรทัดจังหวัด */
+  provinceLabel?: string | null;
+  className?: string;
+}
+
+/** เลเยอร์ตัวนูน: เงาล่างขวา → ไฮไลต์บนซ้าย → ตัวจริง (ไม่ใช้ SVG filter เพื่อให้เบาเครื่อง) */
+const EMBOSS_LAYERS = [
+  { dx: 1.4, dy: 1.7, fill: 'rgba(0, 0, 0, 0.28)' },
+  { dx: -0.9, dy: -0.9, fill: 'rgba(255, 255, 255, 0.8)' },
+  { dx: 0, dy: 0, fill: '#161616' },
+] as const;
+
+/**
+ * เงาสิ่งก่อสร้างของป้ายประมูล — ออกแบบเองจากรูปทรงเรขาคณิตล้วน (สี่เหลี่ยม โดม ยอดแหลม
+ * หลังคาซ้อนชั้น) ไม่ได้อ้างอิงสถานที่ใดโดยเฉพาะ ตึกสูงอยู่ริมซ้าย-ขวา ตรงกลางเตี้ยเพื่อไม่ให้
+ * รบกวนชื่อจังหวัด
+ */
+const SKYLINE_PATH = [
+  // ซ้าย: ตึกเหลี่ยมขั้นบันได
+  'M14 200V166H30V157H44V200Z',
+  // โดม + ยอดเข็ม
+  'M50 200V160H92V200Z',
+  'M50 160A21 21 0 0 1 92 160Z',
+  'M69 141L71 128L73 141Z',
+  // หอยอดแหลม
+  'M98 200V150L107 121L116 150V200Z',
+  // กลาง: อาคารเตี้ย
+  'M116 200V182H168V177H204V184H246V179H292V183H334V200Z',
+  // ขวา: หลังคาซ้อนชั้น + ยอด
+  'M340 200V168H390V200Z',
+  'M334 168L344 160H386L396 168Z',
+  'M344 160L352 152H378L386 160Z',
+  'M352 152L361 144H369L378 152Z',
+  'M362 144L365 123L368 144Z',
+  // ขวาสุด: ตึกเหลี่ยม
+  'M396 200V158H410V149H428V200Z',
+].join('');
+const SKYLINE_BASE_H = 200;
+
+function EmbossedText({ line, anchor }: { line: PlateTextLine; anchor: 'start' | 'middle' }) {
+  const k = line.fontSize / 100;
+  return (
+    <>
+      {EMBOSS_LAYERS.map((layer, i) => (
+        <text
+          key={i}
+          x={line.x + layer.dx * k}
+          y={line.y + layer.dy * k}
+          fontSize={line.fontSize}
+          textAnchor={anchor}
+          fill={layer.fill}
+        >
+          {line.text}
+        </text>
+      ))}
+    </>
+  );
+}
+
+/**
+ * ภาพจำลองป้ายทะเบียน (inline SVG) — ป้ายเป็นวัตถุกายภาพ ขนาดจึงตามความกว้างของกรอบ (px)
+ * ไม่ตาม font scale ของระบบ ยกเว้นข้อความ "ภาพจำลอง ไม่ใช่ป้ายจริง" ใต้ป้ายที่ใช้ rem
+ * ข้อความนี้แสดงเสมอ ไม่มี prop ให้ปิด
+ */
+export const PlateImage = memo(function PlateImage({
+  frontDigit,
+  thaiLetters,
+  tailDigits,
+  variant,
+  provinceLabel,
+  className,
+}: PlateImageProps) {
+  const rawId = useId();
+  const id = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
+  const letter1 = thaiLetters[0];
+  const letter2 = thaiLetters[1];
+  const resolvedProvince = provinceLabel === undefined ? PLATE_IMAGE_DEFAULT_PROVINCE : provinceLabel;
+  const layout = useMemo(
+    () =>
+      buildPlateLayout({
+        frontDigit,
+        thaiLetters: [letter1, letter2],
+        tailDigits,
+        variant,
+        provinceLabel: resolvedProvince,
+      }),
+    [frontDigit, letter1, letter2, tailDigits, variant, resolvedProvince],
+  );
+
+  const bgId = `plate-bg-${id}`;
+  const clipId = `plate-clip-${id}`;
+  const isAuction = variant === 'auction';
+
+  return (
+    <figure className={`plate-figure${className ? ` ${className}` : ''}`}>
+      <svg
+        className={`plate-image plate-image--${variant}`}
+        viewBox={`0 0 ${PLATE_W} ${PLATE_H}`}
+        role="img"
+        aria-label={layout.ariaLabel}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          {isAuction ? (
+            <linearGradient id={bgId} x1="0" y1="0" x2="1" y2="0.35">
+              <stop offset="0" stopColor="#c5afe7" />
+              <stop offset="0.5" stopColor="#e6d6f0" />
+              <stop offset="1" stopColor="#fdd5b3" />
+            </linearGradient>
+          ) : (
+            <linearGradient id={bgId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#fbfaf4" />
+              <stop offset="1" stopColor="#efede4" />
+            </linearGradient>
+          )}
+          <clipPath id={clipId}>
+            <rect x="3" y="3" width={PLATE_W - 6} height={PLATE_H - 6} rx="14" />
+          </clipPath>
+        </defs>
+
+        <rect x="3" y="3" width={PLATE_W - 6} height={PLATE_H - 6} rx="14" fill={`url(#${bgId})`} />
+
+        {isAuction && (
+          <g clipPath={`url(#${clipId})`} aria-hidden="true">
+            <circle cx="378" cy="62" r="30" fill="#fff3e6" opacity="0.55" />
+            {/* SKYLINE_PATH วาดไว้บนพื้นสูง 200 — เลื่อนให้ฐานอาคารชิดขอบล่างของป้ายจริง */}
+            <path
+              d={SKYLINE_PATH}
+              transform={`translate(0 ${PLATE_H - SKYLINE_BASE_H})`}
+              fill="#3d2766"
+              opacity="0.17"
+            />
+          </g>
+        )}
+
+        <rect
+          x="3"
+          y="3"
+          width={PLATE_W - 6}
+          height={PLATE_H - 6}
+          rx="14"
+          fill="none"
+          stroke="#141414"
+          strokeWidth="4"
+        />
+        <rect
+          x="11"
+          y="11"
+          width={PLATE_W - 22}
+          height={PLATE_H - 22}
+          rx="8"
+          fill="none"
+          stroke="#141414"
+          strokeWidth="1.5"
+        />
+
+        <g className="plate-image__text">
+          {layout.topRuns.map((run, i) => (
+            <EmbossedText key={i} line={run} anchor="start" />
+          ))}
+          {layout.provinceLine && (
+            <g className="plate-image__province">
+              <EmbossedText line={layout.provinceLine} anchor="middle" />
+            </g>
+          )}
+        </g>
+      </svg>
+      <figcaption className="plate-figure__note">ภาพจำลอง ไม่ใช่ป้ายจริง</figcaption>
+    </figure>
+  );
+});

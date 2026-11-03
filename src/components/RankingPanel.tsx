@@ -4,6 +4,8 @@ import type { RankingCandidate, TailLength } from '../engine/ranking';
 import { badgeClass, badgeIcon, popularStars } from './ResultCard';
 import { ModeDetailPanel } from './ModeDetailPanel';
 import { ComparisonResultCard } from './ComparisonResultCard';
+import { PlateImage } from './PlateImage';
+import { plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
 import { comparePlates } from '../engine/comparePlates';
 import type { ComparisonResult } from '../engine/comparePlates';
 import type { PlateInput } from '../engine';
@@ -614,6 +616,14 @@ export function RankingPanel({
                         {isExpanded && (
                           <tr className="ranking-detail-row">
                             <td colSpan={TABLE_COLUMN_COUNT}>
+                              <PlateImage
+                                className="ranking-detail-plate"
+                                frontDigit={c.input.frontDigit}
+                                thaiLetters={c.input.thaiLetters}
+                                tailDigits={c.input.tailDigits}
+                                variant={plateVariantFor(c.auction)}
+                                provinceLabel={resolvePlateProvinceLabel(c.input)}
+                              />
                               <ModeDetailPanel
                                 input={c.input}
                                 mode1={c.mode1}

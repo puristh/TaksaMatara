@@ -2,6 +2,8 @@ import type { PlateInput, PlateVerdict } from '../engine';
 import { ModeDetailPanel } from './ModeDetailPanel';
 import { formatPlateText } from '../engine/plateText';
 import type { ReturnContext } from './RankingPanel';
+import { PlateImage } from './PlateImage';
+import { plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -62,15 +64,24 @@ export function ResultCard({
   return (
     <div className={`card${isAuctionConflict ? ' auction-conflict' : ''}`}>
       <div className="card-top">
-        <div className="plate">
-          {plateText}
-          {input.province && <span className="prov">{input.province}</span>}
-          {auction.isAuction && (
-            <span className="auction-tag">● เลขประมูล {auction.categories.join(', ')}</span>
-          )}
-          {popular.isPopular && (
-            <span className="popular-tag">เลขสวย {popularStars(popular.weight)}</span>
-          )}
+        <div className="card-plate-head">
+          <PlateImage
+            frontDigit={input.frontDigit}
+            thaiLetters={input.thaiLetters}
+            tailDigits={input.tailDigits}
+            variant={plateVariantFor(auction)}
+            provinceLabel={resolvePlateProvinceLabel(input)}
+          />
+          <div className="plate">
+            {plateText}
+            {input.province && <span className="prov">{input.province}</span>}
+            {auction.isAuction && (
+              <span className="auction-tag">● เลขประมูล {auction.categories.join(', ')}</span>
+            )}
+            {popular.isPopular && (
+              <span className="popular-tag">เลขสวย {popularStars(popular.weight)}</span>
+            )}
+          </div>
         </div>
         <div className={`verdict ${verdict ? 'v-good' : 'v-bad'}`}>
           {verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}

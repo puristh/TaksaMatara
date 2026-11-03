@@ -1,0 +1,271 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildPlateAriaLabel,
+  buildPlateLayout,
+  inkWidthEm,
+  LETTER_FONT_RATIO,
+  PLATE_H,
+  PLATE_LAYOUT,
+  PLATE_W,
+  plateVariantFor,
+  resolvePlateProvinceLabel,
+  provinceWidthEm,
+  textWidthEm,
+} from './plateLayout';
+import type { PlateLayoutInput } from './plateLayout';
+import { detectAuctionNumber } from '../engine/auctionNumber';
+import { formatPlateText } from '../engine/plateText';
+import { PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
+
+function layout(
+  frontDigit: number | null,
+  letters: [string, string],
+  tailDigits: string,
+  extra: Partial<PlateLayoutInput> = {},
+) {
+  return buildPlateLayout({
+    frontDigit,
+    thaiLetters: letters,
+    tailDigits,
+    variant: 'standard',
+    provinceLabel: 'กรุงเทพมหานคร',
+    ...extra,
+  });
+}
+
+const BAD_TEXT = /undefined|null|NaN/;
+
+describe('buildPlateLayout — prefix/tail composition', () => {
+  it('front digit is glued to the letters ("9กบ"), tail separate', () => {
+    const l = layout(9, ['ก', 'บ'], '9999');
+    expect(l.prefix).toBe('9กบ');
+    expect(l.tail).toBe('9999');
+    expect(l.plateText).toBe('9 กบ 9999');
+  });
+
+  it('front digit 0 is shown as "0" (not treated as missing)', () => {
+    const l = layout(0, ['ฐ', 'ร'], '18');
+    expect(l.prefix).toBe('0ฐร');
+    expect(l.plateText).toBe('0 ฐร 18');
+  });
+
+  it('no front digit (null) → letters only, no leading space, no "null"/"undefined"', () => {
+    const l = layout(null, ['ฐ', 'ร'], '18');
+    expect(l.prefix).toBe('ฐร');
+    expect(l.tail).toBe('18');
+    expect(l.plateText).toBe('ฐร 18');
+    expect(l.ariaLabel).not.toMatch(BAD_TEXT);
+  });
+
+  it('"ฐร 18" (no front digit) differs from "0ฐร 18" (front digit 0)', () => {
+    const none = layout(null, ['ฐ', 'ร'], '18');
+    const zero = layout(0, ['ฐ', 'ร'], '18');
+    expect(none.prefix).not.toBe(zero.prefix);
+    expect(none.plateText).not.toBe(zero.plateText);
+    expect(none.ariaLabel).not.toBe(zero.ariaLabel);
+  });
+
+  it('plateText is exactly formatPlateText (reuses the existing composition rule)', () => {
+    for (const fd of [null, 0, 5]) {
+      const input = { frontDigit: fd, thaiLetters: ['ก', 'ข'] as [string, string], tailDigits: '59' };
+      expect(layout(fd, ['ก', 'ข'], '59').plateText).toBe(formatPlateText(input));
+    }
+  });
+
+  for (const tail of ['1', '12', '123', '1234', '0059']) {
+    for (const fd of [null, 0, 7]) {
+      it(`tail "${tail}" with front ${String(fd)}: no stray text or whitespace`, () => {
+        const l = layout(fd, ['ก', 'ข'], tail);
+        expect(l.tail).toBe(tail);
+        for (const t of [l.prefix, l.tail, l.plateText, l.ariaLabel]) {
+          expect(t).not.toMatch(BAD_TEXT);
+          expect(t).toBe(t.trim());
+          expect(t).not.toMatch(/ {2}/);
+        }
+        expect(l.prefix).not.toMatch(/\s/);
+        expect(l.tail).not.toMatch(/\s/);
+      });
+    }
+  }
+});
+
+const W = PLATE_W;
+const H = PLATE_H;
+const L = PLATE_LAYOUT;
+const DIGIT_CAP_EM = 0.724;
+const EPS = 0.05;
+
+/** ทุกกรณีความยาว: เลขหน้า null/0/ตัวเลข × อักษรแคบ/กว้าง/มีหาง × เลขท้าย 1–4 หลัก × มี/ไม่มีจังหวัด */
+const FRONTS = [null, 0, 8] as const;
+const LETTER_SETS: Array<[string, string]> = [
+  ['ก', 'ก'],
+  ['ร', 'ว'],
+  ['ฒ', 'ฒ'],
+  ['ญ', 'ณ'],
+  ['ฐ', 'ร'],
+  ['ฌ', 'ฬ'],
+];
+const TAILS = ['1', '11', '222', '9999', '0000', '1234'];
+const PROVINCES = ['กรุงเทพมหานคร', 'พระนครศรีอยุธยา', null] as const;
+
+describe('buildPlateLayout — invariants for every length', () => {
+  for (const fd of FRONTS)
+    for (const letters of LETTER_SETS)
+      for (const tail of TAILS)
+        for (const prov of PROVINCES) {
+          const name = `${String(fd)}|${letters.join('')}|${tail}|${String(prov)}`;
+          it(name, () => {
+            const l = layout(fd, letters, tail, { provinceLabel: prov });
+            // ไม่ล้นกรอบซ้าย/ขวา
+            expect(l.frontGroupInk.x0).toBeGreaterThanOrEqual(L.contentLeftW * W - EPS);
+            expect(l.tailGroupInk.x1).toBeLessThanOrEqual(W - L.contentRightW * W + EPS);
+            // กลุ่มหน้าอยู่ซ้าย กลุ่มท้ายอยู่ขวา ห่างกันอย่างน้อย minGroupGap
+            expect(l.tailGroupInk.x0 - l.frontGroupInk.x1).toBeGreaterThanOrEqual(L.minGroupGapW * W - EPS);
+            // ความกว้างหมึกกลุ่มท้ายตรงกับ metric ของฟอนต์ (ไม่ยืดหด glyph)
+            expect(l.tailGroupInk.x1 - l.tailGroupInk.x0).toBeCloseTo(inkWidthEm(tail) * l.digitFontSize, 0);
+            // ขนาดตัวเลขไม่เกินค่าวัด, อักษรสูงเท่าตัวเลข (สัดส่วนคงที่)
+            expect(l.digitFontSize * DIGIT_CAP_EM).toBeLessThanOrEqual(L.digitHeightH * H + EPS);
+            const letterRun = l.topRuns.find((r) => /[ก-ฮ]/.test(r.text))!;
+            expect(letterRun.fontSize / l.digitFontSize).toBeCloseTo(LETTER_FONT_RATIO, 1);
+            // แนวตั้ง: ไม่ล้นบน/ล่าง และหางอักษรไม่ชนบรรทัดจังหวัด
+            expect(l.mainBaseline - DIGIT_CAP_EM * l.digitFontSize).toBeGreaterThanOrEqual(L.minTopMarginH * H - EPS);
+            if (l.provinceTop !== null) {
+              expect(l.mainInkBottom).toBeLessThanOrEqual(l.provinceTop - L.descenderClearanceH * H + EPS);
+              expect(provinceWidthEm(l.provinceLine!.text) * l.provinceLine!.fontSize).toBeLessThanOrEqual(
+                L.province.maxWidthW * W + EPS,
+              );
+            } else {
+              expect(l.mainInkBottom).toBeLessThanOrEqual(H - L.minTopMarginH * H + EPS);
+            }
+            for (const r of l.topRuns) {
+              expect(Number.isFinite(r.x) && Number.isFinite(r.y) && r.fontSize > 0).toBe(true);
+              expect(r.text).not.toMatch(BAD_TEXT);
+            }
+          });
+        }
+});
+
+describe('buildPlateLayout — measured rules from real plates', () => {
+  it('aspect ratio ≈ 2.34 (measured median)', () => {
+    expect(W / H).toBeCloseTo(2.34, 1);
+  });
+
+  it('digit height is the measured 41.5% H whenever it fits — same for 1, 2, 3 and 4 tail digits', () => {
+    for (const tail of ['1', '11', '222', '9999']) {
+      const l = layout(1, ['ก', 'ข'], tail);
+      if (tail.length < 4) expect(l.digitFontSize * DIGIT_CAP_EM).toBeCloseTo(L.digitHeightH * H, 1);
+    }
+    const sizes = ['1', '11', '222'].map((t) => layout(null, ['ก', 'ข'], t).digitFontSize);
+    expect(new Set(sizes).size).toBe(1);
+  });
+
+  it('groups sit centered in their own zones (front ≈ 24% W, tail ≈ 72% W), or pinned to the frame when the font is too wide to center', () => {
+    for (const [fd, tail] of [[8, '11'], [null, '1'], [1, '48'], [null, '92'], [null, '345']] as const) {
+      const l = layout(fd, ['ก', 'ข'], tail);
+      const fc = (l.frontGroupInk.x0 + l.frontGroupInk.x1) / 2;
+      const tc = (l.tailGroupInk.x0 + l.tailGroupInk.x1) / 2;
+      if (l.frontGroupInk.x0 > L.contentLeftW * W + EPS) expect(fc / W).toBeCloseTo(L.leftGroupCenterW, 2);
+      else expect(l.frontGroupInk.x0).toBeCloseTo(L.contentLeftW * W, 1);
+      expect(tc / W).toBeCloseTo(L.tailGroupCenterW, 2);
+    }
+    // ไม่มีเลขหน้า กลุ่มแคบพอ → อยู่กึ่งกลางโซนพอดี
+    const nf = layout(null, ['ก', 'ข'], '92');
+    expect((nf.frontGroupInk.x0 + nf.frontGroupInk.x1) / 2 / W).toBeCloseTo(L.leftGroupCenterW, 2);
+  });
+
+  it('"8กก 11" is left-heavy like real plates (tail stays in its zone, not stretched to the edge)', () => {
+    const l = layout(8, ['ก', 'ก'], '11');
+    expect(l.tailGroupInk.x1).toBeLessThan(W - L.contentRightW * W - 0.1 * W);
+    expect(l.tailGroupInk.x0 - l.frontGroupInk.x1).toBeGreaterThan(0.1 * W);
+  });
+
+  it('long plates (front + 2 letters + 4 digits) use the full width with the minimum gap', () => {
+    const l = layout(5, ['ก', 'ผ'], '8888');
+    expect(l.frontGroupInk.x0).toBeCloseTo(L.contentLeftW * W, 0);
+    expect(l.tailGroupInk.x1).toBeCloseTo(W - L.contentRightW * W, 0);
+    expect(l.tailGroupInk.x0 - l.frontGroupInk.x1).toBeCloseTo(L.minGroupGapW * W, 0);
+  });
+
+  it('front digit run only when frontDigit !== null; "0" gets its own run; prefix glued to letters', () => {
+    expect(layout(null, ['ฐ', 'ร'], '18').topRuns.map((r) => r.text)).toEqual(['ฐร', '18']);
+    expect(layout(0, ['ฐ', 'ร'], '18').topRuns.map((r) => r.text)).toEqual(['0', 'ฐร', '18']);
+    const l = layout(9, ['ก', 'บ'], '9999');
+    expect(l.topRuns.map((r) => r.text)).toEqual(['9', 'กบ', '9999']);
+    const [f, letters] = l.topRuns;
+    expect(letters.x).toBeCloseTo(f.x + textWidthEm(f.text) * f.fontSize, 1);
+  });
+
+  it('province line: measured size (15.35% H consonant), baseline 88% H, centered', () => {
+    const l = layout(1, ['ก', 'ข'], '12');
+    expect(l.provinceLine!.x).toBe(W / 2);
+    expect(l.provinceLine!.y / H).toBeCloseTo(L.province.baselineH, 2);
+    // ความสูงไม่เกินค่าวัด และความกว้างไม่เกินค่าวัด (ตัวใดตัวหนึ่งเป็นตัวกำหนด)
+    const consonantH = (l.provinceLine!.fontSize * 0.575) / H;
+    const width = (provinceWidthEm(l.provinceLine!.text) * l.provinceLine!.fontSize) / W;
+    expect(consonantH).toBeLessThanOrEqual(L.province.consonantHeightH + 0.001);
+    expect(width).toBeLessThanOrEqual(L.province.maxWidthW + 0.001);
+    expect(Math.max(consonantH / L.province.consonantHeightH, width / L.province.maxWidthW)).toBeCloseTo(1, 2);
+    // สำหรับ "กรุงเทพมหานคร" ตัวอักษรยังสูงใกล้ค่าวัด (ต่างไม่เกิน 10%)
+    expect(consonantH / L.province.consonantHeightH).toBeGreaterThan(0.9);
+  });
+
+  it('descender letters (ฐ) lift the main line rather than colliding with the province', () => {
+    const plain = layout(null, ['ก', 'ร'], '18');
+    const tailed = layout(null, ['ฐ', 'ร'], '18');
+    expect(tailed.mainBaseline).toBeLessThan(plain.mainBaseline);
+    expect(tailed.mainInkBottom).toBeLessThanOrEqual(tailed.provinceTop! - L.descenderClearanceH * H + EPS);
+  });
+
+  it('combining marks (สระบน/ล่าง) take no width', () => {
+    expect(textWidthEm('กรุง')).toBeCloseTo(textWidthEm('กรง'));
+  });
+});
+
+describe('plate variant — selected only via the existing detectAuctionNumber', () => {
+  it('auction numbers → "auction"', () => {
+    for (const tail of ['9999', '1234', '5000', '88', '777']) {
+      expect(detectAuctionNumber(tail).isAuction).toBe(true);
+      expect(plateVariantFor(detectAuctionNumber(tail))).toBe('auction');
+    }
+  });
+  it('non-auction numbers → "standard" (incl. "1989" which only contains "89")', () => {
+    for (const tail of ['18', '1989', '59', '4721']) {
+      expect(detectAuctionNumber(tail).isAuction).toBe(false);
+      expect(plateVariantFor(detectAuctionNumber(tail))).toBe('standard');
+    }
+  });
+});
+
+describe('aria-label', () => {
+  it('uses the real plate text', () => {
+    expect(layout(null, ['ฐ', 'ร'], '18').ariaLabel).toBe('ภาพจำลองป้ายทะเบียน ฐร 18 กรุงเทพมหานคร');
+    expect(layout(null, ['ฐ', 'ร'], '18', { provinceLabel: null }).ariaLabel).toBe('ภาพจำลองป้ายทะเบียน ฐร 18');
+  });
+  it('says when it is the auction design', () => {
+    expect(layout(9, ['ก', 'บ'], '9999', { variant: 'auction' }).ariaLabel).toBe(
+      'ภาพจำลองป้ายทะเบียน 9 กบ 9999 กรุงเทพมหานคร (ลายป้ายประมูล)',
+    );
+  });
+  it('contains no placeholder / intermediate values', () => {
+    const label = buildPlateAriaLabel('0 ฐร 18', null, 'standard');
+    expect(label).not.toMatch(BAD_TEXT);
+    expect(label).not.toMatch(/\{|\}|\$|prefix|tail/);
+  });
+});
+
+describe('province line', () => {
+  it('provinceLabel null → no province line', () => {
+    expect(layout(1, ['ก', 'ข'], '12', { provinceLabel: null }).provinceLine).toBeNull();
+  });
+  it('blank province label → no province line (no empty text)', () => {
+    expect(layout(1, ['ก', 'ข'], '12', { provinceLabel: '  ' }).provinceLine).toBeNull();
+  });
+  it('default constant is กรุงเทพมหานคร', () => {
+    expect(PLATE_IMAGE_DEFAULT_PROVINCE).toBe('กรุงเทพมหานคร');
+  });
+  it('resolvePlateProvinceLabel: typed province wins, default otherwise, null default turns the line off', () => {
+    expect(resolvePlateProvinceLabel({}, 'กรุงเทพมหานคร')).toBe('กรุงเทพมหานคร');
+    expect(resolvePlateProvinceLabel({ province: ' เชียงใหม่ ' }, 'กรุงเทพมหานคร')).toBe('เชียงใหม่');
+    expect(resolvePlateProvinceLabel({ province: 'เชียงใหม่' }, null)).toBeNull();
+  });
+});
