@@ -23,17 +23,57 @@ export type PlateVariant = 'standard' | 'auction';
 export const PLATE_W = 440;
 
 /**
+ * กรอบป้าย (หน่วย viewBox, กว้าง PLATE_W) — PlateImage.tsx วาดเส้นขอบตามค่านี้ ระยะปลอดภัยของข้อความ
+ * วัดจาก "ขอบด้านในของเส้นขอบใน" (innerInset + innerStroke / 2) ไม่ใช่ขอบนอกของป้าย
+ */
+const PLATE_FRAME = {
+  outerInset: 3,
+  outerStroke: 4,
+  outerRadius: 14,
+  innerInset: 11,
+  innerStroke: 1.5,
+  innerRadius: 8,
+} as const;
+const ASPECT = 2.34;
+export const PLATE_H = Math.round(PLATE_W / ASPECT);
+/** ขอบด้านในของเส้นขอบใน (หน่วย viewBox) */
+const FRAME_INNER_EDGE = PLATE_FRAME.innerInset + PLATE_FRAME.innerStroke / 2;
+const SAFE_MARGIN_W = 0.048;
+const SAFE_MARGIN_TOP_H = 0.045;
+const SAFE_MARGIN_BOTTOM_H = 0.045;
+/** ความลึกสระล่าง ุ ู (em) ของฟอนต์บรรทัดจังหวัด — ลึกกว่าหางพยัญชนะทุกตัว (ฐ 0.322, ญ 0.270) */
+const PROVINCE_LOWER_MARK_EM = 0.327;
+const PROVINCE_CONSONANT_HEIGHT_H = 0.1535;
+
+/**
  * ค่าเลย์เอาต์ทั้งหมดของป้าย — สัดส่วนต่อความกว้าง (W) หรือความสูง (H) ของป้าย
  * "วัด n/13" = ค่ามัธยฐานจากภาพป้ายจริงที่ใช้ได้ n แผ่น, "ประมาณการ" = ไม่มีภาพรองรับพอ (< 3)
+ * "สบายตา" = เลือกให้อ่านสบาย ไม่ได้มาจากป้ายจริง (ป้ายจริงแน่นกว่าและไม่มีเส้นขอบใน)
  */
 export const PLATE_LAYOUT = {
   /** กว้าง:สูง — วัด 13/13 มัธยฐาน 2.337 (ช่วง 2.21–2.43 รวมความคลาดจากมุมกล้อง) */
-  aspect: 2.34,
-  /** ระยะขอบซ้าย/ขวาน้อยสุดของข้อความหลัก — วัด: ต่ำสุดที่พบ 3.2% / 3.6% W (ป้าย 7 ตัวอักษร) */
-  contentLeftW: 0.032,
-  contentRightW: 0.036,
+  aspect: ASPECT,
+  /** เส้นขอบนอก/ใน (หน่วย viewBox) — PlateImage.tsx วาดตามค่านี้ */
+  frame: PLATE_FRAME,
+  /**
+   * ระยะปลอดภัยแนวนอน 4.8% W ต่อด้าน วัดจากขอบในของเส้นขอบใน — สบายตา
+   * ป้ายจริงไม่มีเส้นขอบใน และข้อความป้ายยาว (เลขท้าย 4 หลัก) ห่างขอบนอกป้ายเพียง 3.2–8.9% W
+   * (วัด 4/13: 5กผ 8888 3.2/3.6, 4กพ 9998 4.1/4.3, สต 8888 5.1/4.4, ชถ 8088 8.9/7.5) — ถ้ายึดค่านี้
+   * ข้อความจะทับ/แตะเส้นขอบในของภาพจำลอง จึงเลือกความสบายตาแทน
+   */
+  safeMarginW: SAFE_MARGIN_W,
+  /** ระยะปลอดภัยบน (ยอดหมึกบรรทัดหลัก) / ล่าง (สระล่างของบรรทัดจังหวัด) จากขอบในของเส้นขอบใน — สบายตา
+   * (ป้ายจริงยาว 4/13 จากขอบนอก: บน 4.4–10.3% H, ล่าง 4.2–11.7% H) */
+  safeMarginTopH: SAFE_MARGIN_TOP_H,
+  safeMarginBottomH: SAFE_MARGIN_BOTTOM_H,
+  /** ขอบซ้าย/ขวาของพื้นที่ข้อความหลัก (จากขอบนอก) = ขอบในของเส้นขอบใน + safeMarginW (= 7.47% W) */
+  contentLeftW: FRAME_INNER_EDGE / PLATE_W + SAFE_MARGIN_W,
+  contentRightW: FRAME_INNER_EDGE / PLATE_W + SAFE_MARGIN_W,
   /** ความสูงหมึกของตัวเลข — วัด 13/13 มัธยฐาน 41.5% H (ช่วง 38–46) ไม่ขึ้นกับจำนวนหลัก */
   digitHeightH: 0.415,
+  /** ความสูงหมึกของตัวเลขขั้นต่ำเป้าหมายเมื่อต้องย่อป้ายยาว — ต่ำกว่าช่วงที่วัดได้ (38–46%) เล็กน้อย
+   * อักษรพยัญชนะทั่วไป + เลขหน้า + เลขท้าย 4 หลักอยู่เหนือค่านี้ อักษรกว้างพิเศษ/มีหางอาจต่ำกว่า (ดูเทสต์) */
+  minDigitHeightH: 0.36,
   /** ความสูงพยัญชนะไทย : ความสูงตัวเลข — วัด 13/13 มัธยฐาน 1.00 (ตัวเลข/อักษร 0.89–1.01) */
   letterToDigitHeight: 1.0,
   /** baseline ของบรรทัดหลัก (ขอบล่างตัวเลข) — วัด 13/13 มัธยฐาน 53.5% H */
@@ -44,25 +84,41 @@ export const PLATE_LAYOUT = {
   tailGroupCenterW: 0.72,
   /** ช่องว่างน้อยสุดระหว่างกลุ่ม — วัด: ต่ำสุดที่พบ 5.8% W (ป้าย 7 ตัวอักษร) */
   minGroupGapW: 0.058,
-  /** ระยะขอบบนน้อยสุดเมื่อต้องยกบรรทัดหลบหางอักษร — ประมาณการ */
-  minTopMarginH: 0.05,
-  /** ระยะห่างน้อยสุดระหว่างหางล่างอักษร (ฐ ญ ฎ ฏ ฤ ฦ) กับยอดบรรทัดจังหวัด — วัด 3/13 (ป้ายที่มี ฐ/ฎ)
-   * ได้ 8.0–11.7% H ใช้ค่าต่ำสุด เพราะหางในฟอนต์นี้ยาวกว่าป้ายจริง ~2 เท่า (จริง ~5–10% H) ถ้าใช้ค่า
-   * มัธยฐานตัวอักษรจะถูกย่อมากเกินไป */
-  descenderClearanceH: 0.08,
+  /** ยอดหมึกบรรทัดหลักสูงสุด (จากขอบนอก) = ขอบในของเส้นขอบใน + safeMarginTopH */
+  minTopMarginH: FRAME_INNER_EDGE / PLATE_H + SAFE_MARGIN_TOP_H,
+  /** ระยะห่างน้อยสุดระหว่างหางล่างอักษร (ฐ ญ ฎ ฏ ฤ ฦ) กับหมึกบนสุดของบรรทัดจังหวัด — ป้ายจริงวัด 3/13
+   * ได้ 8.0–11.7% H แต่หางในฟอนต์นี้ยาวกว่าจริง ~2 เท่าและเป็นชิ้นแยก ถ้าใช้ 8% ร่วมกับระยะปลอดภัย
+   * ตัวเลขจะเหลือ ~30% H จึงใช้ 4% H — สบายตา/ประมาณการ */
+  descenderClearanceH: 0.04,
+  /** ระยะห่างน้อยสุดระหว่างขอบล่างบรรทัดหลัก (ไม่มีหาง) กับหมึกบนสุดของบรรทัดจังหวัด (รวมสระบน/วรรณยุกต์)
+   * — ป้ายจริง 15.0–19.9% H (วัด 13/13) แต่ระยะปลอดภัยบน-ล่างกินพื้นที่ไป ใช้ 6% H ที่ยังแยกบรรทัดชัด
+   * — สบายตา/ประมาณการ */
+  minLineGapH: 0.06,
   province: {
     /** ความสูงพยัญชนะ — วัด 13/13 มัธยฐาน 15.35% H (= 0.37 เท่าความสูงตัวเลข) */
-    consonantHeightH: 0.1535,
-    /** baseline — วัด 13/13 มัธยฐาน 88% H, กึ่งกลางแนวนอน (วัด 13/13 เยื้อง ≤ ±0.6% W ยกเว้น 1 แผ่น 2.2%) */
-    baselineH: 0.88,
+    consonantHeightH: PROVINCE_CONSONANT_HEIGHT_H,
+    /**
+     * baseline — ป้ายจริงวัด 13/13 มัธยฐาน 88% H แต่ที่ 88% สระล่าง (ุ ของ "กรุง") ทับเส้นขอบในของภาพจำลอง
+     * จึงยกขึ้นให้สระล่างที่ลึกที่สุดของฟอนต์ (0.327 em) ที่ขนาดเต็มอยู่เหนือระยะปลอดภัยล่างพอดี (≈ 80.5% H)
+     * ใช้ค่าเดียวทุกชื่อจังหวัด กึ่งกลางแนวนอน (วัด 13/13 เยื้อง ≤ ±0.6% W ยกเว้น 1 แผ่น 2.2%)
+     */
+    baselineH:
+      1 -
+      FRAME_INNER_EDGE / PLATE_H -
+      SAFE_MARGIN_BOTTOM_H -
+      (PROVINCE_LOWER_MARK_EM * PROVINCE_CONSONANT_HEIGHT_H) / 0.575,
     /** ความกว้างสูงสุด — "กรุงเทพมหานคร" วัด 13/13 มัธยฐาน 69.4% W (ช่วง 68–76) ฟอนต์นี้กว้างกว่าจริง
      * ~7% ที่ความสูงเท่ากัน จึงจำกัดความกว้างตามค่าวัด (ตัวอักษรเตี้ยลงเล็กน้อยแทนการล้นกว้าง)
-     * ชื่อจังหวัดที่ยาวกว่านี้ก็ถูกย่อให้ไม่เกินค่าเดียวกัน (ประมาณการ — ไม่มีภาพจังหวัดอื่น) */
+     * ชื่อจังหวัดที่ยาวกว่านี้ก็ถูกย่อให้ไม่เกินค่าเดียวกัน (ประมาณการ — ไม่มีภาพจังหวัดอื่น)
+     * ขอบเหลือ (100 − 69.4) / 2 = 15.3% W จากขอบนอก จึงอยู่ในระยะปลอดภัยเสมอ */
     maxWidthW: 0.694,
+    /** ป้ายที่อักษรมีหาง (ฐ ญ ฎ ฏ ฤ ฦ): ย่อชื่อจังหวัดได้ไม่ต่ำกว่า 85% ของขนาดปกติ เพื่อคืนพื้นที่แนวตั้งให้ตัวเลข
+     * ได้ใกล้ minDigitHeightH — ย่อเท่าที่จำเป็นเท่านั้น และ baseline เลื่อนลงตามความลึกสระล่างที่เล็กลง
+     * — สบายตา (ที่จอ 390px พยัญชนะจังหวัดยังสูง ≥ 14px) */
+    descenderShrinkMin: 0.85,
   },
 } as const;
 
-export const PLATE_H = Math.round(PLATE_W / PLATE_LAYOUT.aspect);
 
 /** metric ของฟอนต์บรรทัดหลัก wdth 70 (หน่วย em): [advance, left bearing, right bearing, yMin, yMax] */
 type GlyphMetric = readonly [number, number, number, number, number];
@@ -191,6 +247,45 @@ function descenderEm(text: string): number {
   return d;
 }
 
+/** ยอดหมึกสูงสุดในข้อความ (em) ตาม yMax ของ glyph — อักษรหัวสูง ป ฝ ฟ ฬ สูงกว่าตัวเลข */
+function ascenderEm(text: string): number {
+  let a = 0;
+  for (const ch of text) a = Math.max(a, metric(ch)[4]);
+  return a;
+}
+
+/** yMax (em) ของฟอนต์บรรทัดจังหวัด วัดจากไฟล์ฟอนต์ */
+const PROVINCE_UPPER_MARK_EM = 0.943; // สระบน/วรรณยุกต์ 0.858–0.943 (สูงสุด = ไม้ไต่คู้)
+const PROVINCE_LEADING_VOWEL_EM = 0.933; // โ ใ ไ
+const PROVINCE_TALL_CONSONANT_EM = 0.788; // ป ฝ ฟ 0.760, ฬ 0.788
+/** วรรณยุกต์ซ้อนบนสระบน หรือเครื่องหมายบนอักษรหัวสูง ถูกยกขึ้นอีกชั้น — ประมาณการเผื่อไว้ (ตรวจกับภาพเรนเดอร์) */
+const PROVINCE_STACKED_MARK_EM = 1.2;
+const TALL_CONSONANT = /[ปฝฟฬ]/;
+const LEADING_VOWEL = /[โใไ]/;
+const UPPER_VOWEL = /[\u0E31\u0E34-\u0E37\u0E47\u0E4D]/;
+const TONE_MARK = /[\u0E48-\u0E4C]/;
+const UPPER_MARK = /[\u0E31\u0E34-\u0E37\u0E47-\u0E4E]/;
+const LOWER_MARK = /[\u0E38-\u0E3A]/;
+
+/** ยอดหมึกสูงสุดของชื่อจังหวัด (em) รวมสระบน/วรรณยุกต์ */
+export function provinceAscentEm(text: string): number {
+  let a = THAI_CONSONANT_EM;
+  let prev = '';
+  let base = '';
+  for (const ch of text) {
+    if (TALL_CONSONANT.test(ch)) a = Math.max(a, PROVINCE_TALL_CONSONANT_EM);
+    if (LEADING_VOWEL.test(ch)) a = Math.max(a, PROVINCE_LEADING_VOWEL_EM);
+    if (UPPER_MARK.test(ch)) {
+      const stacked = (TONE_MARK.test(ch) && UPPER_VOWEL.test(prev)) || TALL_CONSONANT.test(base);
+      a = Math.max(a, stacked ? PROVINCE_STACKED_MARK_EM : PROVINCE_UPPER_MARK_EM);
+    } else if (!LOWER_MARK.test(ch)) {
+      base = ch;
+    }
+    prev = ch;
+  }
+  return a;
+}
+
 /** เลือกลายป้ายจากผลตรวจเลขประมูลเดิมของระบบ (detectAuctionNumber) เท่านั้น */
 export function plateVariantFor(auction: Pick<AuctionNumberInfo, 'isAuction'>): PlateVariant {
   return auction.isAuction ? 'auction' : 'standard';
@@ -239,6 +334,8 @@ export interface PlateLayout {
   digitFontSize: number;
   mainBaseline: number;
   /** ขอบล่างสุดของหมึกบรรทัดหลัก (รวมหางอักษร) */
+  /** ยอดหมึกบรรทัดหลัก (รวมอักษรหัวสูง ป ฝ ฟ ฬ) */
+  mainInkTop: number;
   mainInkBottom: number;
   /** text-anchor="middle" */
   provinceLine: PlateTextLine | null;
@@ -270,18 +367,6 @@ export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
   const contentRight = W - L.contentRightW * W;
   const minGap = L.minGroupGapW * W;
 
-  // ---- บรรทัดจังหวัด (คำนวณก่อน เพราะยอดบรรทัดนี้จำกัดหางล่างของอักษรบรรทัดหลัก) ----
-  let provinceLine: PlateTextLine | null = null;
-  let provinceTop: number | null = null;
-  if (provinceLabel !== null) {
-    const byHeight = (L.province.consonantHeightH * H) / THAI_CONSONANT_EM;
-    const byWidth = (L.province.maxWidthW * W) / Math.max(provinceWidthEm(provinceLabel), 0.01);
-    const size = Math.min(byHeight, byWidth);
-    const baseline = L.province.baselineH * H;
-    provinceLine = { text: provinceLabel, x: W / 2, y: round2(baseline), fontSize: round2(size) };
-    provinceTop = baseline - THAI_CONSONANT_EM * size;
-  }
-
   // ---- บรรทัดหลัก: ความกว้าง (em ของขนาดตัวเลข) ----
   // กลุ่มหน้า: เลขหน้า (ขนาดตัวเลข) + อักษร (ขนาด × LETTER_FONT_RATIO) ติดกันตาม advance ปกติ
   const frontAdvEm = front === null ? 0 : textWidthEm(front);
@@ -293,25 +378,54 @@ export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
   const tailInkEm = inkWidthEm(tail);
   const descEm = descenderEm(letters) * LETTER_FONT_RATIO;
 
-  // ขนาดตัวเลขตามค่าวัด แล้วย่อทั้งบรรทัดตามสัดส่วนเมื่อจำเป็นเท่านั้น
+  // ขนาดตัวเลขตามค่าวัด แล้วย่อทั้งบรรทัดด้วยอัตราส่วนเดียวเมื่อกว้างเกินพื้นที่ในระยะปลอดภัยเท่านั้น
   let size = (L.digitHeightH * H) / DIGIT_CAP_EM;
   size = Math.min(size, (contentRight - contentLeft - minGap) / (frontInkEm + tailInkEm));
-
-  // แนวตั้ง: baseline ตามค่าวัด — ถ้าหางอักษร (ฐ ญ ฎ ฏ ฤ ฦ) จะชนบรรทัดจังหวัด ยกบรรทัดขึ้นได้ถึง
-  // ระยะขอบบนน้อยสุด แล้วจึงย่อ (ฟอนต์นี้หางยาวกว่าป้ายจริง)
   const minTop = L.minTopMarginH * H;
-  let baseline: number;
-  if (provinceTop !== null) {
-    const limit = provinceTop - L.descenderClearanceH * H;
-    if (descEm > 0) size = Math.min(size, (limit - minTop) / (DIGIT_CAP_EM + descEm));
-    baseline = Math.min(L.mainBaselineH * H, limit - descEm * size);
-    baseline = Math.max(baseline, minTop + DIGIT_CAP_EM * size);
-  } else {
-    // ไม่มีบรรทัดจังหวัด: จัดตัวเลขกึ่งกลางแนวตั้ง (ประมาณการ — ไม่มีภาพป้ายจริงกรณีนี้)
-    const maxBottom = H - minTop;
-    if (descEm > 0) size = Math.min(size, (maxBottom - minTop) / (DIGIT_CAP_EM + descEm));
-    baseline = Math.min(H / 2 + (DIGIT_CAP_EM * size) / 2, maxBottom - descEm * size);
+  const topEm = Math.max(DIGIT_CAP_EM, ascenderEm(letters) * LETTER_FONT_RATIO);
+
+  // ---- บรรทัดจังหวัด (ยอดหมึกบรรทัดนี้จำกัดขอบล่างของบรรทัดหลัก) ----
+  // ปกติ baseline คงที่ (สระล่างที่ลึกที่สุดที่ขนาดเต็มอยู่เหนือระยะปลอดภัยล่างพอดี)
+  // provinceTop = หมึกบนสุดรวมสระบน/วรรณยุกต์
+  let provinceLine: PlateTextLine | null = null;
+  let provinceTop: number | null = null;
+  if (provinceLabel !== null) {
+    const byHeight = (L.province.consonantHeightH * H) / THAI_CONSONANT_EM;
+    const byWidth = (L.province.maxWidthW * W) / Math.max(provinceWidthEm(provinceLabel), 0.01);
+    let pSize = Math.min(byHeight, byWidth);
+    let pBaseline = L.province.baselineH * H;
+    const ascEm = provinceAscentEm(provinceLabel);
+    if (descEm > 0) {
+      // อักษรมีหาง: ย่อจังหวัดเท่าที่จำเป็นให้ตัวเลขได้ขนาดเป้าหมาย (ไม่เกินที่ความกว้างอนุญาต) แล้ววาง baseline
+      // ให้สระล่างที่ลึกที่สุดชิดระยะปลอดภัยล่างตามขนาดใหม่
+      const safeBottom = pBaseline + PROVINCE_LOWER_MARK_EM * byHeight;
+      const target = Math.min(size, (L.minDigitHeightH * H) / DIGIT_CAP_EM);
+      const needTop = minTop + target * (topEm + descEm) + L.descenderClearanceH * H;
+      const fit = (safeBottom - needTop) / (PROVINCE_LOWER_MARK_EM + ascEm);
+      const shrunk = Math.min(pSize, Math.max(fit, pSize * L.province.descenderShrinkMin));
+      if (shrunk < pSize) {
+        pSize = shrunk;
+        pBaseline = safeBottom - PROVINCE_LOWER_MARK_EM * pSize;
+      }
+    }
+    provinceLine = { text: provinceLabel, x: W / 2, y: round2(pBaseline), fontSize: round2(pSize) };
+    provinceTop = pBaseline - ascEm * pSize;
   }
+
+  // แนวตั้ง: baseline ตามค่าวัด — ยอดหมึก (รวมอักษรหัวสูง ป ฝ ฟ ฬ) ต้องไม่ล้ำระยะปลอดภัยบน และขอบล่าง
+  // (รวมหาง ฐ ญ ฎ ฏ ฤ ฦ) ต้องห่างหมึกบนสุดของบรรทัดจังหวัด — ถ้าไม่พอ ยกบรรทัดขึ้นถึงระยะปลอดภัยบน แล้วจึงย่อ
+  const limit =
+    provinceTop !== null
+      ? provinceTop - (descEm > 0 ? L.descenderClearanceH : L.minLineGapH) * H
+      : H - minTop; // ไม่มีบรรทัดจังหวัด: ระยะปลอดภัยล่างเท่าด้านบน (ประมาณการ)
+  size = Math.min(size, (limit - minTop) / (topEm + descEm));
+  let baseline =
+    provinceTop !== null
+      ? L.mainBaselineH * H
+      : // ไม่มีบรรทัดจังหวัด: จัดตัวเลขกึ่งกลางแนวตั้ง (ประมาณการ — ไม่มีภาพป้ายจริงกรณีนี้)
+        H / 2 + (DIGIT_CAP_EM * size) / 2;
+  baseline = Math.min(baseline, limit - descEm * size);
+  baseline = Math.max(baseline, minTop + topEm * size);
 
   // แนวนอน: กลุ่มหน้าและกลุ่มท้ายอยู่กึ่งกลางโซนของตัวเอง (ตามค่าวัด) แล้วดันเข้าในกรอบ/ถ่างให้ห่าง
   // อย่างน้อย minGap — ย่อขนาดไว้แล้วข้างบน จึงจัดได้เสมอ
@@ -360,6 +474,7 @@ export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
     tailGroupInk: { x0: round2(tx0), x1: round2(tx1) },
     digitFontSize: round2(size),
     mainBaseline: topY,
+    mainInkTop: round2(baseline - topEm * size),
     mainInkBottom: round2(baseline + descEm * size),
     provinceLine,
     provinceTop: provinceTop === null ? null : round2(provinceTop),

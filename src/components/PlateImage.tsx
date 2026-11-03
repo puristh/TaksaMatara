@@ -1,7 +1,7 @@
 import { memo, useId, useMemo } from 'react';
 import type { PlateInput } from '../engine/types';
 import { PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
-import { buildPlateLayout, PLATE_H, PLATE_W } from './plateLayout';
+import { buildPlateLayout, PLATE_H, PLATE_LAYOUT, PLATE_W } from './plateLayout';
 import type { PlateTextLine, PlateVariant } from './plateLayout';
 
 interface PlateImageProps extends Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'> {
@@ -44,6 +44,8 @@ const SKYLINE_PATH = [
   'M396 200V158H410V149H428V200Z',
 ].join('');
 const SKYLINE_BASE_H = 200;
+/** เส้นขอบป้าย — ค่าอยู่ใน PLATE_LAYOUT.frame ที่เดียว (ระยะปลอดภัยของข้อความวัดจากเส้นขอบใน) */
+const F = PLATE_LAYOUT.frame;
 
 function EmbossedText({ line, anchor }: { line: PlateTextLine; anchor: 'start' | 'middle' }) {
   const k = line.fontSize / 100;
@@ -122,11 +124,24 @@ export const PlateImage = memo(function PlateImage({
             </linearGradient>
           )}
           <clipPath id={clipId}>
-            <rect x="3" y="3" width={PLATE_W - 6} height={PLATE_H - 6} rx="14" />
+            <rect
+              x={F.outerInset}
+              y={F.outerInset}
+              width={PLATE_W - 2 * F.outerInset}
+              height={PLATE_H - 2 * F.outerInset}
+              rx={F.outerRadius}
+            />
           </clipPath>
         </defs>
 
-        <rect x="3" y="3" width={PLATE_W - 6} height={PLATE_H - 6} rx="14" fill={`url(#${bgId})`} />
+        <rect
+          x={F.outerInset}
+          y={F.outerInset}
+          width={PLATE_W - 2 * F.outerInset}
+          height={PLATE_H - 2 * F.outerInset}
+          rx={F.outerRadius}
+          fill={`url(#${bgId})`}
+        />
 
         {isAuction && (
           <g clipPath={`url(#${clipId})`} aria-hidden="true">
@@ -142,27 +157,28 @@ export const PlateImage = memo(function PlateImage({
         )}
 
         <rect
-          x="3"
-          y="3"
-          width={PLATE_W - 6}
-          height={PLATE_H - 6}
-          rx="14"
+          x={F.outerInset}
+          y={F.outerInset}
+          width={PLATE_W - 2 * F.outerInset}
+          height={PLATE_H - 2 * F.outerInset}
+          rx={F.outerRadius}
           fill="none"
           stroke="#141414"
-          strokeWidth="4"
+          strokeWidth={F.outerStroke}
         />
         <rect
-          x="11"
-          y="11"
-          width={PLATE_W - 22}
-          height={PLATE_H - 22}
-          rx="8"
+          x={F.innerInset}
+          y={F.innerInset}
+          width={PLATE_W - 2 * F.innerInset}
+          height={PLATE_H - 2 * F.innerInset}
+          rx={F.innerRadius}
           fill="none"
           stroke="#141414"
-          strokeWidth="1.5"
+          strokeWidth={F.innerStroke}
         />
 
-        <g className="plate-image__text">
+        {/* clip ที่ขอบป้าย: ถ้าฟอนต์ป้ายโหลดไม่สำเร็จและฟอนต์สำรองกว้างกว่า ข้อความจะไม่ล้นออกนอกป้าย */}
+        <g className="plate-image__text" clipPath={`url(#${clipId})`}>
           {layout.topRuns.map((run, i) => (
             <EmbossedText key={i} line={run} anchor="start" />
           ))}
