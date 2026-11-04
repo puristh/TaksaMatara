@@ -5,12 +5,15 @@ import {
   CUSTOM_PLATE_FONT,
   inkWidthEm,
   NOTO_PLATE_FONT,
+  makePlateLayout,
+  PLATE_BASE_H,
   PLATE_H,
   PLATE_LAYOUT,
   PLATE_W,
   plateVariantFor,
   resolvePlateProvinceLabel,
   provinceBaselineH,
+  provinceDescentEm,
   provinceWidthEm,
   textWidthEm,
 } from './plateLayout';
@@ -169,8 +172,12 @@ describe(`[${font.style}] buildPlateLayout — measured rules from real plates`,
     tailDigits: string,
     extra: Partial<PlateLayoutInput> = {},
   ) => layoutWith(frontDigit, letters, tailDigits, extra, font);
-  it('aspect ratio ≈ 2.34 (measured median)', () => {
-    expect(W / H).toBeCloseTo(2.34, 1);
+  // เดิม: W / H ≈ 2.34 — ป้ายสูงขึ้น heightScale (1.2) เท่าตามที่ผู้ใช้เทียบกับป้ายจริง ป้ายฐานยังเป็น 2.34
+  it('aspect ratio: base plate ≈ 2.34 (measured median), drawn plate is heightScale (1.2×) taller → ≈ 1.95', () => {
+    expect(W / PLATE_BASE_H).toBeCloseTo(2.34, 1);
+    expect(L.heightScale).toBe(1.2);
+    expect(H).toBe(Math.round(PLATE_BASE_H * 1.2));
+    expect(W / H).toBeCloseTo(1.95, 1);
   });
 
   it('digit height is the measured 41.5% H whenever it fits — same for 1, 2, 3 and 4 tail digits', () => {
@@ -227,10 +234,20 @@ describe(`[${font.style}] buildPlateLayout — measured rules from real plates`,
     }
   });
 
-  it('province line: measured size (15.35% H consonant), baseline 88% H, centered', () => {
+  // เดิม: y / H ≈ provinceBaselineH(font) — ชื่อจังหวัดย่อ 0.8 เท่าโดยให้หมึกล่างสุดอยู่ที่เดิม baseline จึงเลื่อนลง
+  // ตามความลึกหมึกล่างของชื่อนั้น (กรุงเทพมหานคร: สระ ุ) — ระยะจากขอบล่างเท่าป้ายที่ไม่ย่อจังหวัด
+  it('province line: measured size × provinceScale (15.35% of base plate × 0.8), ink bottom stays put, centered', () => {
     const l = layout(1, ['ก', 'ข'], '12');
     expect(l.provinceLine!.x).toBe(W / 2);
-    expect(l.provinceLine!.y / H).toBeCloseTo(provinceBaselineH(font), 2);
+    const d = provinceDescentEm(l.provinceLine!.text, font);
+    const full = buildPlateLayout(
+      { frontDigit: 1, thaiLetters: ['ก', 'ข'], tailDigits: '12', variant: 'standard', provinceLabel: 'กรุงเทพมหานคร' },
+      font,
+      makePlateLayout(L.heightScale, 1),
+    ).provinceLine!;
+    expect(l.provinceLine!.fontSize).toBeCloseTo(full.fontSize * L.provinceScale, 1);
+    expect(l.provinceLine!.y + d * l.provinceLine!.fontSize).toBeCloseTo(full.y + d * full.fontSize, 1);
+    expect(full.y / H).toBeCloseTo(provinceBaselineH(font), 2);
     // ความสูงไม่เกินค่าวัด และความกว้างไม่เกินค่าวัด (ตัวใดตัวหนึ่งเป็นตัวกำหนด)
     const consonantH = (l.provinceLine!.fontSize * font.province.consonantEm) / H;
     const width = (provinceWidthEm(l.provinceLine!.text, font) * l.provinceLine!.fontSize) / W;
@@ -241,10 +258,15 @@ describe(`[${font.style}] buildPlateLayout — measured rules from real plates`,
     expect(consonantH / L.province.consonantHeightH).toBeGreaterThan(0.9);
   });
 
-  it('descender letters (ฐ) lift the main line rather than colliding with the province', () => {
-    const plain = layout(null, ['ก', 'ร'], '18');
-    const tailed = layout(null, ['ฐ', 'ร'], '18');
-    expect(tailed.mainBaseline).toBeLessThan(plain.mainBaseline);
+  // เดิม: tailed.mainBaseline < plain.mainBaseline ที่ป้ายสูงเดิม — ป้ายสูง 1.2 เท่ามีที่พอ หางไม่ต้องยกบรรทัดแล้ว
+  // จึงตรวจกฎการยกที่ป้ายสูงเดิม (makePlateLayout(1, 1)) และตรวจที่ป้ายใหม่ว่าไม่ชนและไม่ต้องยก
+  it('descender letters (ฐ) lift the main line rather than colliding with the province (base-height plate); the 1.2× plate needs no lift', () => {
+    const base = makePlateLayout(1, 1);
+    const at = (letters: [string, string], cfg = L) =>
+      buildPlateLayout({ frontDigit: null, thaiLetters: letters, tailDigits: '18', variant: 'standard', provinceLabel: 'กรุงเทพมหานคร' }, font, cfg);
+    expect(at(['ฐ', 'ร'], base).mainBaseline).toBeLessThan(at(['ก', 'ร'], base).mainBaseline);
+    const tailed = at(['ฐ', 'ร']);
+    expect(tailed.mainBaseline).toBe(at(['ก', 'ร']).mainBaseline);
     expect(tailed.mainInkBottom).toBeLessThanOrEqual(tailed.provinceTop! - L.descenderClearanceH * H + EPS);
   });
 

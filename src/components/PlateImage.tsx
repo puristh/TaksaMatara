@@ -57,6 +57,11 @@ const SKYLINE_BASE_H = 200;
 /** เส้นขอบป้าย — ค่าอยู่ใน PLATE_LAYOUT.frame ที่เดียว (ระยะปลอดภัยของข้อความวัดจากเส้นขอบใน) */
 const F = PLATE_LAYOUT.frame;
 
+/** มุมโค้งของเงานอกป้าย (CSS border-radius) ให้ตรงกับ rx ของเส้นขอบนอก — คำนวณจากสัดส่วนป้าย (PLATE_LAYOUT.heightScale) */
+const PLATE_CORNER_STYLE = {
+  borderRadius: `${n2((F.outerRadius / PLATE_W) * 100)}% / ${n2((F.outerRadius / PLATE_H) * 100)}%`,
+} as const;
+
 /** ทศนิยม 2 ตำแหน่งใน attribute transform */
 function n2(v: number): number {
   return Math.round(v * 100) / 100;
@@ -162,6 +167,7 @@ export const PlateImage = memo(function PlateImage({
         role="img"
         aria-label={layout.ariaLabel}
         preserveAspectRatio="xMidYMid meet"
+        style={PLATE_CORNER_STYLE}
       >
         <defs>
           {isAuction ? (

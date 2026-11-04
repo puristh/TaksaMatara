@@ -1656,8 +1656,7 @@ table.ranking-table {
   display: block;
   width: 100%;
   height: auto;
-  /* มุมโค้งตรงกับ rx=14 ของ viewBox 440x188 — เงานอกป้ายให้เห็นขอบบนพื้นขาวในโหมดสว่าง */
-  border-radius: 3.2% / 7.4%;
+  /* มุมโค้ง (border-radius) ตั้งใน PlateImage.tsx ตามสัดส่วนป้าย — เงานอกป้ายให้เห็นขอบบนพื้นขาวในโหมดสว่าง */
   box-shadow:
     0 1px 2px rgba(28, 36, 48, 0.14),
     0 3px 10px rgba(28, 36, 48, 0.1);

@@ -4,6 +4,7 @@ import {
   CUSTOM_PLATE_FONT,
   inkWidthEm,
   NOTO_PLATE_FONT,
+  PLATE_BASE_H,
   PLATE_H,
   PLATE_LAYOUT,
   PLATE_W,
@@ -95,12 +96,15 @@ function checkInside(c: Case, variant: PlateVariant, font: PlateFontProfile, mar
 
 for (const font of FONTS)
 describe(`[${font.style}] safe margin from the inner frame line`, () => {
-  it('safe margins are within the requested ranges (≥ 4% W, 4–5% H) and measured from the inner line', () => {
+  // เดิม: safeMarginTopH/BottomH อยู่ในช่วง 4–5% H — ป้ายสูงขึ้น 1.2 เท่าโดยคงระยะจริง (4.5% ของป้ายฐาน = 8.46 หน่วย)
+  // จึงตรวจช่วง 4–5% ของความสูงป้ายฐาน (PLATE_BASE_H) แทน ซึ่งเท่ากับ 3.74% ของความสูงป้ายใหม่
+  it('safe margins are within the requested ranges (≥ 4% W, 4–5% of the base plate height) and measured from the inner line', () => {
     expect(L.safeMarginW).toBeGreaterThanOrEqual(0.04);
     expect(L.safeMarginW).toBeLessThanOrEqual(0.05);
     for (const m of [L.safeMarginTopH, L.safeMarginBottomH]) {
-      expect(m).toBeGreaterThanOrEqual(0.04);
-      expect(m).toBeLessThanOrEqual(0.05);
+      expect((m * H) / PLATE_BASE_H).toBeGreaterThanOrEqual(0.04);
+      expect((m * H) / PLATE_BASE_H).toBeLessThanOrEqual(0.05);
+      expect(m * H).toBeCloseTo(0.045 * PLATE_BASE_H, 6);
     }
     expect(L.contentLeftW * W).toBeCloseTo(INNER_L + L.safeMarginW * W, 6);
     expect(L.minTopMarginH * H).toBeCloseTo(INNER_T + L.safeMarginTopH * H, 6);

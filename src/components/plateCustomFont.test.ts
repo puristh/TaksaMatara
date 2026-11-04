@@ -4,10 +4,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPlateLayout,
   CUSTOM_PLATE_FONT,
+  makePlateLayout,
   NOTO_PLATE_FONT,
   OSWALD_MEAN_DIGIT_GAP_EM,
   PLATE_FONT_PROFILE,
   PLATE_FONT_PROFILES,
+  PLATE_BASE_H,
   PLATE_H,
   PLATE_LAYOUT,
   PLATE_W,
@@ -42,9 +44,11 @@ const EPS = 0.05;
 const CONSONANTS = [...'กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮ'];
 const COMBINING = /[ัิ-ฺ็-๎]/;
 
-function lay(front: number | null, l1: string, l2: string, tail: string, province = 'กรุงเทพมหานคร', font = CUSTOM_PLATE_FONT) {
-  return buildPlateLayout({ frontDigit: front, thaiLetters: [l1, l2], tailDigits: tail, variant: 'standard', provinceLabel: province }, font);
+function lay(front: number | null, l1: string, l2: string, tail: string, province = 'กรุงเทพมหานคร', font = CUSTOM_PLATE_FONT, cfg = L) {
+  return buildPlateLayout({ frontDigit: front, thaiLetters: [l1, l2], tailDigits: tail, variant: 'standard', provinceLabel: province }, font, cfg);
 }
+/** ชื่อจังหวัดที่ต่ำกว่าค่านี้ (px ที่ป้ายกว้าง 260px = #single ที่จอ 390px) ต้องแจ้งในรายงาน — ผู้ใช้กำหนด ~10.5px */
+const PROVINCE_WARN_PX = 10.5;
 /** ขอบหมึกของ glyph ที่วางแล้ว (หน่วย viewBox) ตาม metric ของชุดฟอนต์ที่ระบุ */
 function inkBox(r: PlateTextLine, font = CUSTOM_PLATE_FONT) {
   const m = (r.role === 'letter' ? font.letters[r.text] : font.digits[r.text])!;
@@ -105,17 +109,20 @@ describe('ชุดฟอนต์ custom — กติกาที่เลื�
     expect((a.x0 - d.x1) / l.digitFontSize).toBeCloseTo(OSWALD_MEAN_DIGIT_GAP_EM * 1.4, 2);
     expect((b.x0 - a.x1) / l.digitFontSize).toBeCloseTo(OSWALD_MEAN_DIGIT_GAP_EM * 1.4, 2);
   });
-  it('ป้ายสั้นได้ตัวเลข 41.5% H และป้ายยาวทั่วไปได้ใกล้กว่าชุด noto', () => {
+  // เดิม: ÷ H ได้ 0.415 และ custom > noto ทุกป้าย — ป้ายสูง 1.2 เท่า: 41.5% เป็นสัดส่วนของป้ายฐาน (ระยะจริงเท่าเดิม)
+  // และ "ฐร 18" ชุด noto ไม่ต้องย่อแล้ว (ได้ 41.5% เต็มเท่ากัน) จึงเปลี่ยนเป็น ≥
+  it('ป้ายสั้นได้ตัวเลข 41.5% ของป้ายฐาน และป้ายยาวทั่วไปได้เท่าหรือใกล้กว่าชุด noto', () => {
     for (const [f, a, b, t] of [[null, 'ศ', 'ร', '91'], [8, 'ก', 'ก', '11'], [1, 'ก', 'ก', '1234']] as const)
-      expect((lay(f, a, b, t).digitFontSize * CUSTOM_PLATE_FONT.digitCapEm) / H).toBeCloseTo(0.415, 3);
+      expect((lay(f, a, b, t).digitFontSize * CUSTOM_PLATE_FONT.digitCapEm) / PLATE_BASE_H).toBeCloseTo(0.415, 3);
     for (const [f, a, b, t] of [[2, 'ก', 'บ', '2295'], [9, 'ก', 'บ', '9999'], [5, 'ก', 'ผ', '8888'], [9, 'ญ', 'ณ', '4721'], [0, 'ฐ', 'ร', '1234'], [null, 'ฐ', 'ร', '18']] as const) {
       const c = (lay(f, a, b, t).digitFontSize * CUSTOM_PLATE_FONT.digitCapEm) / H;
       const n = (lay(f, a, b, t, 'กรุงเทพมหานคร', NOTO_PLATE_FONT).digitFontSize * NOTO_PLATE_FONT.digitCapEm) / H;
-      expect(c).toBeGreaterThan(n);
+      expect(c).toBeGreaterThanOrEqual(n - 1e-4);
       expect(c).toBeGreaterThanOrEqual(L.minDigitHeightH);
     }
   });
-  it('ชื่อจังหวัดทั้ง 77 ชื่อ: อยู่ในระยะปลอดภัย และพยัญชนะสูง ≥ 13px ที่ป้ายกว้าง 260px (ขนาดจริงใน #single ที่จอ 390px)', () => {
+  // เดิม: พยัญชนะจังหวัด ≥ 13px — ผู้ใช้ให้ย่อชื่อจังหวัดเหลือ 0.8 และเอากฎ 13px ออก ใช้เกณฑ์เตือน 10.5px แทน
+  it('ชื่อจังหวัดทั้ง 77 ชื่อ: อยู่ในระยะปลอดภัย และพยัญชนะสูง ≥ 10.5px (เกณฑ์เตือน) ที่ป้ายกว้าง 260px (ขนาดจริงใน #single ที่จอ 390px)', () => {
     for (const p of THAI_PROVINCES)
       for (const [f, a, b, t] of [[9, 'ก', 'บ', '9999'], [0, 'ฐ', 'ร', '1234'], [9, 'ญ', 'ญ', '8888']] as const) {
         const l = lay(f, a, b, t, p);
@@ -124,8 +131,7 @@ describe('ชุดฟอนต์ custom — กติกาที่เลื�
         expect(line.x - pw / 2, p).toBeGreaterThanOrEqual(INNER_L + L.safeMarginW * W - EPS);
         expect(l.mainInkBottom, p).toBeLessThan(l.provinceTop!);
         const consonantPx = line.fontSize * CUSTOM_PLATE_FONT.province.consonantEm * (260 / W);
-        // font-size ปัดทศนิยม 2 ตำแหน่ง (round2) จึงยอมให้ต่ำกว่า 13px ได้ไม่เกิน 0.01px
-        expect(consonantPx, `${p} ${f}${a}${b}`).toBeGreaterThanOrEqual(12.99);
+        expect(consonantPx, `${p} ${f}${a}${b}`).toBeGreaterThanOrEqual(PROVINCE_WARN_PX);
       }
   });
 });
@@ -136,10 +142,12 @@ describe('สวิตช์ย้อนกลับ (PLATE_FONT_STYLE) แล�
     expect(PLATE_FONT_PROFILE).toBe(CUSTOM_PLATE_FONT);
     expect(PLATE_FONT_PROFILES.noto).toBe(NOTO_PLATE_FONT);
   });
-  it('ชุด noto ให้ผลเลย์เอาต์เหมือนโค้ดก่อนมีชุด custom ทุกค่า (snapshot จาก commit cbdf8a2)', () => {
+  // เดิม: เทียบที่ป้ายปัจจุบัน — ป้ายสูง 1.2 เท่าเปลี่ยนเลย์เอาต์โดยตั้งใจ จึงเทียบที่ป้ายสูงเดิม (heightScale 1, จังหวัด 1)
+  // ซึ่งต้องได้ค่าเดิมทุกตัว = การแปลงกฎ % H เป็นระยะจริงไม่เปลี่ยนผลของป้ายเดิม
+  it('ชุด noto ที่ป้ายสูงเดิม (makePlateLayout(1, 1)) ให้ผลเลย์เอาต์เหมือนโค้ดก่อนมีชุด custom ทุกค่า (snapshot จาก commit cbdf8a2)', () => {
     for (const s of OLD_NOTO_SNAPSHOT) {
       const [f, [a, b], t, p] = s.input as [number | null, [string, string], string, string];
-      const l: PlateLayout = lay(f, a, b, t, p, NOTO_PLATE_FONT);
+      const l: PlateLayout = lay(f, a, b, t, p, NOTO_PLATE_FONT, makePlateLayout(1, 1));
       expect(l.topRuns.map(({ text, x, y, fontSize }) => ({ text, x, y, fontSize }))).toEqual(s.topRuns);
       expect(l.provinceLine).toEqual(s.provinceLine);
       expect([l.mainInkTop, l.mainInkBottom, l.provinceTop]).toEqual([s.mainInkTop, s.mainInkBottom, s.provinceTop]);
