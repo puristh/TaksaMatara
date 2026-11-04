@@ -2,36 +2,44 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPlateAriaLabel,
   buildPlateLayout,
+  CUSTOM_PLATE_FONT,
   inkWidthEm,
-  LETTER_FONT_RATIO,
+  NOTO_PLATE_FONT,
   PLATE_H,
   PLATE_LAYOUT,
   PLATE_W,
   plateVariantFor,
   resolvePlateProvinceLabel,
+  provinceBaselineH,
   provinceWidthEm,
   textWidthEm,
 } from './plateLayout';
-import type { PlateLayoutInput } from './plateLayout';
+import type { PlateFontProfile, PlateLayoutInput } from './plateLayout';
 import { detectAuctionNumber } from '../engine/auctionNumber';
 import { formatPlateText } from '../engine/plateText';
 import { PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
 
-function layout(
+function layoutWith(
   frontDigit: number | null,
   letters: [string, string],
   tailDigits: string,
   extra: Partial<PlateLayoutInput> = {},
+  font?: PlateFontProfile,
 ) {
-  return buildPlateLayout({
-    frontDigit,
-    thaiLetters: letters,
-    tailDigits,
-    variant: 'standard',
-    provinceLabel: 'กรุงเทพมหานคร',
-    ...extra,
-  });
+  return buildPlateLayout(
+    {
+      frontDigit,
+      thaiLetters: letters,
+      tailDigits,
+      variant: 'standard',
+      provinceLabel: 'กรุงเทพมหานคร',
+      ...extra,
+    },
+    font,
+  );
 }
+
+const layout = layoutWith;
 
 const BAD_TEXT = /undefined|null|NaN/;
 
@@ -92,8 +100,13 @@ describe('buildPlateLayout — prefix/tail composition', () => {
 const W = PLATE_W;
 const H = PLATE_H;
 const L = PLATE_LAYOUT;
-const DIGIT_CAP_EM = 0.724;
 const EPS = 0.05;
+/**
+ * เทสต์เลย์เอาต์ด้านล่างรันกับทั้งสองชุดฟอนต์ (featureFlags.ts → PLATE_FONT_STYLE)
+ * ค่าที่เดิมเขียนตายตัวตามฟอนต์ Noto (DIGIT_CAP_EM = 0.724, LETTER_FONT_RATIO, ฐานจังหวัด 0.575 em,
+ * L.province.baselineH) เปลี่ยนเป็นค่าของชุดฟอนต์ที่กำลังทดสอบ — ชุด noto ได้ค่าเดิมทุกตัว
+ */
+const FONTS = [NOTO_PLATE_FONT, CUSTOM_PLATE_FONT];
 
 /** ทุกกรณีความยาว: เลขหน้า null/0/ตัวเลข × อักษรแคบ/กว้าง/มีหาง × เลขท้าย 1–4 หลัก × มี/ไม่มีจังหวัด */
 const FRONTS = [null, 0, 8] as const;
@@ -108,30 +121,32 @@ const LETTER_SETS: Array<[string, string]> = [
 const TAILS = ['1', '11', '222', '9999', '0000', '1234'];
 const PROVINCES = ['กรุงเทพมหานคร', 'พระนครศรีอยุธยา', null] as const;
 
-describe('buildPlateLayout — invariants for every length', () => {
+for (const font of FONTS)
+describe(`[${font.style}] buildPlateLayout — invariants for every length`, () => {
+  const DIGIT_CAP_EM = font.digitCapEm;
   for (const fd of FRONTS)
     for (const letters of LETTER_SETS)
       for (const tail of TAILS)
         for (const prov of PROVINCES) {
           const name = `${String(fd)}|${letters.join('')}|${tail}|${String(prov)}`;
           it(name, () => {
-            const l = layout(fd, letters, tail, { provinceLabel: prov });
+            const l = layout(fd, letters, tail, { provinceLabel: prov }, font);
             // ไม่ล้นกรอบซ้าย/ขวา
             expect(l.frontGroupInk.x0).toBeGreaterThanOrEqual(L.contentLeftW * W - EPS);
             expect(l.tailGroupInk.x1).toBeLessThanOrEqual(W - L.contentRightW * W + EPS);
             // กลุ่มหน้าอยู่ซ้าย กลุ่มท้ายอยู่ขวา ห่างกันอย่างน้อย minGroupGap
             expect(l.tailGroupInk.x0 - l.frontGroupInk.x1).toBeGreaterThanOrEqual(L.minGroupGapW * W - EPS);
             // ความกว้างหมึกกลุ่มท้ายตรงกับ metric ของฟอนต์ (ไม่ยืดหด glyph)
-            expect(l.tailGroupInk.x1 - l.tailGroupInk.x0).toBeCloseTo(inkWidthEm(tail) * l.digitFontSize, 0);
+            expect(l.tailGroupInk.x1 - l.tailGroupInk.x0).toBeCloseTo(inkWidthEm(tail, font) * l.digitFontSize, 0);
             // ขนาดตัวเลขไม่เกินค่าวัด, อักษรสูงเท่าตัวเลข (สัดส่วนคงที่)
             expect(l.digitFontSize * DIGIT_CAP_EM).toBeLessThanOrEqual(L.digitHeightH * H + EPS);
-            const letterRun = l.topRuns.find((r) => /[ก-ฮ]/.test(r.text))!;
-            expect(letterRun.fontSize / l.digitFontSize).toBeCloseTo(LETTER_FONT_RATIO, 1);
+            const letterRun = l.topRuns.find((r) => r.role === 'letter')!;
+            expect(letterRun.fontSize / l.digitFontSize).toBeCloseTo(font.letterFontRatio, 1);
             // แนวตั้ง: ไม่ล้นบน/ล่าง และหางอักษรไม่ชนบรรทัดจังหวัด
             expect(l.mainBaseline - DIGIT_CAP_EM * l.digitFontSize).toBeGreaterThanOrEqual(L.minTopMarginH * H - EPS);
             if (l.provinceTop !== null) {
               expect(l.mainInkBottom).toBeLessThanOrEqual(l.provinceTop - L.descenderClearanceH * H + EPS);
-              expect(provinceWidthEm(l.provinceLine!.text) * l.provinceLine!.fontSize).toBeLessThanOrEqual(
+              expect(provinceWidthEm(l.provinceLine!.text, font) * l.provinceLine!.fontSize).toBeLessThanOrEqual(
                 L.province.maxWidthW * W + EPS,
               );
             } else {
@@ -145,7 +160,15 @@ describe('buildPlateLayout — invariants for every length', () => {
         }
 });
 
-describe('buildPlateLayout — measured rules from real plates', () => {
+for (const font of FONTS)
+describe(`[${font.style}] buildPlateLayout — measured rules from real plates`, () => {
+  const DIGIT_CAP_EM = font.digitCapEm;
+  const layout = (
+    frontDigit: number | null,
+    letters: [string, string],
+    tailDigits: string,
+    extra: Partial<PlateLayoutInput> = {},
+  ) => layoutWith(frontDigit, letters, tailDigits, extra, font);
   it('aspect ratio ≈ 2.34 (measured median)', () => {
     expect(W / H).toBeCloseTo(2.34, 1);
   });
@@ -187,21 +210,30 @@ describe('buildPlateLayout — measured rules from real plates', () => {
   });
 
   it('front digit run only when frontDigit !== null; "0" gets its own run; prefix glued to letters', () => {
-    expect(layout(null, ['ฐ', 'ร'], '18').topRuns.map((r) => r.text)).toEqual(['ฐร', '18']);
-    expect(layout(0, ['ฐ', 'ร'], '18').topRuns.map((r) => r.text)).toEqual(['0', 'ฐร', '18']);
-    const l = layout(9, ['ก', 'บ'], '9999');
-    expect(l.topRuns.map((r) => r.text)).toEqual(['9', 'กบ', '9999']);
-    const [f, letters] = l.topRuns;
-    expect(letters.x).toBeCloseTo(f.x + textWidthEm(f.text) * f.fontSize, 1);
+    if (font.placement === 'runs') {
+      expect(layout(null, ['ฐ', 'ร'], '18').topRuns.map((r) => r.text)).toEqual(['ฐร', '18']);
+      expect(layout(0, ['ฐ', 'ร'], '18').topRuns.map((r) => r.text)).toEqual(['0', 'ฐร', '18']);
+      const l = layout(9, ['ก', 'บ'], '9999');
+      expect(l.topRuns.map((r) => r.text)).toEqual(['9', 'กบ', '9999']);
+      const [f, letters] = l.topRuns;
+      expect(letters.x).toBeCloseTo(f.x + textWidthEm(f.text, font) * f.fontSize, 1);
+    } else {
+      // ชุด custom วางทีละ glyph: ลำดับและบทบาทยังตรงกับเลขหน้า / อักษร / เลขท้าย
+      expect(layout(null, ['ฐ', 'ร'], '18').topRuns.map((r) => r.text)).toEqual(['ฐ', 'ร', '1', '8']);
+      expect(layout(0, ['ฐ', 'ร'], '18').topRuns.map((r) => `${r.role}:${r.text}`)).toEqual([
+        'digit:0', 'letter:ฐ', 'letter:ร', 'digit:1', 'digit:8',
+      ]);
+      expect(layout(9, ['ก', 'บ'], '9999').topRuns.map((r) => r.text).join('')).toBe('9กบ9999');
+    }
   });
 
   it('province line: measured size (15.35% H consonant), baseline 88% H, centered', () => {
     const l = layout(1, ['ก', 'ข'], '12');
     expect(l.provinceLine!.x).toBe(W / 2);
-    expect(l.provinceLine!.y / H).toBeCloseTo(L.province.baselineH, 2);
+    expect(l.provinceLine!.y / H).toBeCloseTo(provinceBaselineH(font), 2);
     // ความสูงไม่เกินค่าวัด และความกว้างไม่เกินค่าวัด (ตัวใดตัวหนึ่งเป็นตัวกำหนด)
-    const consonantH = (l.provinceLine!.fontSize * 0.575) / H;
-    const width = (provinceWidthEm(l.provinceLine!.text) * l.provinceLine!.fontSize) / W;
+    const consonantH = (l.provinceLine!.fontSize * font.province.consonantEm) / H;
+    const width = (provinceWidthEm(l.provinceLine!.text, font) * l.provinceLine!.fontSize) / W;
     expect(consonantH).toBeLessThanOrEqual(L.province.consonantHeightH + 0.001);
     expect(width).toBeLessThanOrEqual(L.province.maxWidthW + 0.001);
     expect(Math.max(consonantH / L.province.consonantHeightH, width / L.province.maxWidthW)).toBeCloseTo(1, 2);

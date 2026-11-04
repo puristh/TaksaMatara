@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { buildPlateLayout, inkWidthEm, PLATE_H, PLATE_LAYOUT, PLATE_W, provinceWidthEm } from './plateLayout';
-import type { PlateVariant } from './plateLayout';
+import {
+  buildPlateLayout,
+  CUSTOM_PLATE_FONT,
+  inkWidthEm,
+  NOTO_PLATE_FONT,
+  PLATE_H,
+  PLATE_LAYOUT,
+  PLATE_W,
+  provinceWidthEm,
+} from './plateLayout';
+import type { PlateFontProfile, PlateVariant } from './plateLayout';
+import { NORASI_PROVINCE_VERTICAL, NORASI_PROVINCES_SHAPED } from './plateFontMetrics.generated';
 
 /**
  * ระยะปลอดภัย (safe margin) วัดจาก "ขอบด้านในของเส้นขอบใน" ของภาพจำลอง ไม่ใช่ขอบนอกของป้าย
@@ -14,8 +24,16 @@ const INNER_L = F.innerInset + F.innerStroke / 2;
 const INNER_R = W - INNER_L;
 const INNER_T = F.innerInset + F.innerStroke / 2;
 const INNER_B = H - INNER_T;
-/** ฟอนต์บรรทัดจังหวัด (wdth 80): สระล่าง ุ ู ลึก 0.327 em — ลึกที่สุดในฟอนต์ */
-const PROVINCE_LOWER_MARK_EM = 0.327;
+/**
+ * ความลึกหมึกล่างสุดของบรรทัดจังหวัด (em) วัดจากไฟล์ฟอนต์ ไม่ใช่จากโค้ดเลย์เอาต์
+ * - noto (wdth 80): สระล่าง ุ ู ลึก 0.327 em — ลึกที่สุดในฟอนต์ (ค่าเดิม)
+ * - custom (Norasi Bold): ชื่อจังหวัดจริงใช้ความลึกที่ HarfBuzz จัดวางแล้ว (tools/plate_fonts.py) ชื่ออื่นใช้ค่าสูงสุดของฟอนต์
+ */
+function provinceLowerMarkEm(font: PlateFontProfile, text: string): number {
+  if (font.style === 'noto') return 0.327;
+  return NORASI_PROVINCES_SHAPED[text]?.[3] ?? NORASI_PROVINCE_VERTICAL.lowerMarkEm;
+}
+const FONTS = [NOTO_PLATE_FONT, CUSTOM_PLATE_FONT];
 const EPS = 0.05;
 
 type Case = [front: number | null, l1: string, l2: string, tail: string, province?: string];
@@ -46,33 +64,37 @@ const MAX_CASES: Case[] = [
   [8, 'ฒ', 'ฒ', '8888', 'จังหวัดที่ชื่อยาวมากเกินกว่าชื่อจังหวัดจริงทุกจังหวัดในประเทศ'],
 ];
 
-function lay([front, l1, l2, tail, province]: Case, variant: PlateVariant) {
-  return buildPlateLayout({
-    frontDigit: front,
-    thaiLetters: [l1, l2],
-    tailDigits: tail,
-    variant,
-    provinceLabel: province ?? 'กรุงเทพมหานคร',
-  });
+function lay([front, l1, l2, tail, province]: Case, variant: PlateVariant, font: PlateFontProfile) {
+  return buildPlateLayout(
+    {
+      frontDigit: front,
+      thaiLetters: [l1, l2],
+      tailDigits: tail,
+      variant,
+      provinceLabel: province ?? 'กรุงเทพมหานคร',
+    },
+    font,
+  );
 }
 
-function checkInside(c: Case, variant: PlateVariant, marginW: number, topH: number, bottomH: number) {
-  const l = lay(c, variant);
+function checkInside(c: Case, variant: PlateVariant, font: PlateFontProfile, marginW: number, topH: number, bottomH: number) {
+  const l = lay(c, variant, font);
   // แนวนอน
   expect(l.frontGroupInk.x0 - INNER_L).toBeGreaterThanOrEqual(marginW * W - EPS);
   expect(INNER_R - l.tailGroupInk.x1).toBeGreaterThanOrEqual(marginW * W - EPS);
   // แนวตั้ง: ยอดบรรทัดหลัก และสระล่างบรรทัดจังหวัด
   expect(l.mainInkTop - INNER_T).toBeGreaterThanOrEqual(topH * H - EPS);
   const p = l.provinceLine!;
-  expect(INNER_B - (p.y + PROVINCE_LOWER_MARK_EM * p.fontSize)).toBeGreaterThanOrEqual(bottomH * H - EPS);
+  expect(INNER_B - (p.y + provinceLowerMarkEm(font, p.text) * p.fontSize)).toBeGreaterThanOrEqual(bottomH * H - EPS);
   // จังหวัดอยู่ในระยะปลอดภัยแนวนอนด้วย และหางบรรทัดหลักไม่ทับหมึกบนสุดของบรรทัดจังหวัด
-  const pw = provinceWidthEm(p.text) * p.fontSize;
+  const pw = provinceWidthEm(p.text, font) * p.fontSize;
   expect(p.x - pw / 2 - INNER_L).toBeGreaterThanOrEqual(marginW * W - EPS);
   expect(l.mainInkBottom).toBeLessThan(l.provinceTop!);
   return l;
 }
 
-describe('safe margin from the inner frame line', () => {
+for (const font of FONTS)
+describe(`[${font.style}] safe margin from the inner frame line`, () => {
   it('safe margins are within the requested ranges (≥ 4% W, 4–5% H) and measured from the inner line', () => {
     expect(L.safeMarginW).toBeGreaterThanOrEqual(0.04);
     expect(L.safeMarginW).toBeLessThanOrEqual(0.05);
@@ -87,32 +109,32 @@ describe('safe margin from the inner frame line', () => {
   for (const variant of ['standard', 'auction'] as const)
     for (const c of [...CHECK_SET, ...MAX_CASES])
       it(`${variant}: ${c[0] ?? ''}${c[1]}${c[2]} ${c[3]} ${c[4] ?? 'กรุงเทพมหานคร'} stays inside the safe area`, () => {
-        checkInside(c, variant, L.safeMarginW, L.safeMarginTopH, L.safeMarginBottomH);
+        checkInside(c, variant, font, L.safeMarginW, L.safeMarginTopH, L.safeMarginBottomH);
       });
 
   it('common long plates (front + ordinary letters + 4 digits) keep digits ≥ 36% H', () => {
     for (const c of [CHECK_SET[0], CHECK_SET[1], CHECK_SET[2], CHECK_SET[4], CHECK_SET[9], CHECK_SET[11]]) {
-      const l = lay(c, 'standard');
-      expect((l.digitFontSize * 0.724) / H).toBeGreaterThanOrEqual(L.minDigitHeightH);
+      const l = lay(c, 'standard', font);
+      expect((l.digitFontSize * font.digitCapEm) / H).toBeGreaterThanOrEqual(L.minDigitHeightH);
     }
   });
 
   it('short plates keep the measured digit size (41.5% H)', () => {
     for (const c of [CHECK_SET[6], CHECK_SET[7]]) {
-      expect((lay(c, 'standard').digitFontSize * 0.724) / H).toBeCloseTo(L.digitHeightH, 3);
+      expect((lay(c, 'standard', font).digitFontSize * font.digitCapEm) / H).toBeCloseTo(L.digitHeightH, 3);
     }
   });
 
   it('long plates shrink the whole line by one ratio (tail ink width still matches font metrics)', () => {
-    const l = lay(CHECK_SET[0], 'standard');
-    expect(l.tailGroupInk.x1 - l.tailGroupInk.x0).toBeCloseTo(inkWidthEm('2295') * l.digitFontSize, 1);
+    const l = lay(CHECK_SET[0], 'standard', font);
+    expect(l.tailGroupInk.x1 - l.tailGroupInk.x0).toBeCloseTo(inkWidthEm('2295', font) * l.digitFontSize, 1);
     const sizes = l.topRuns.filter((r) => /^\d+$/.test(r.text)).map((r) => r.fontSize);
     expect(new Set(sizes).size).toBe(1);
   });
 
   it('tolerates ±3% text-width difference between browsers without crossing the inner line', () => {
     for (const c of [...CHECK_SET, ...MAX_CASES]) {
-      const l = lay(c, 'standard');
+      const l = lay(c, 'standard', font);
       const fw = l.frontGroupInk.x1 - l.frontGroupInk.x0;
       const tw = l.tailGroupInk.x1 - l.tailGroupInk.x0;
       // runs วางแบบ text-anchor="start": ข้อความที่กว้างขึ้น 3% จะยื่นไปทางขวา ส่วนแคบลงไม่ล้นแน่นอน
@@ -120,7 +142,7 @@ describe('safe margin from the inner frame line', () => {
       expect(l.frontGroupInk.x1 + 0.03 * fw).toBeLessThan(l.tailGroupInk.x0);
       expect(l.frontGroupInk.x0 - 0.03 * fw).toBeGreaterThan(INNER_L);
       const p = l.provinceLine!;
-      const pw = provinceWidthEm(p.text) * p.fontSize * 1.03;
+      const pw = provinceWidthEm(p.text, font) * p.fontSize * 1.03;
       expect(p.x + pw / 2).toBeLessThan(INNER_R);
     }
   });

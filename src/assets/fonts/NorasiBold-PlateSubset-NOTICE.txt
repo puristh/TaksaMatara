@@ -1,0 +1,15 @@
+NorasiBold-PlateSubset.woff2 — modified version of Norasi Bold
+
+Source:   tlwg/fonts-tlwg v0.7.4 (release ttf-tlwg-0.7.4.tar.xz) (https://github.com/tlwg/fonts-tlwg), file Norasi-Bold.ttf
+          font version: Version 006.005
+          sha256 of the original file: cdbce4c80e378f04d863490bef3e31cd611eef96b687aa9976bc2844d112f8c8
+License:  GNU General Public License version 2 or later, with the font exception
+          (see Norasi-COPYING.txt for copyright and the exception, Norasi-GPL-2.txt for the GPL text)
+Changes:  subset to Thai consonants, vowels, tone marks, ็ ์ ํ ๆ ฯ, space and every character used by
+          the 77 Thai province names; converted to WOFF2. No glyph outline was changed.
+          GSUB/GPOS tables kept. Produced by tools/plate_fonts.py in this repository
+          (the corresponding source is the upstream source above plus that script).
+Exception: the font exception of the original is extended to this modified version:
+          if you create a document which uses this font, and embed this font or unaltered portions
+          of this font into the document, this font does not by itself cause the resulting document
+          to be covered by the GNU General Public License.

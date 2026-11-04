@@ -6,8 +6,17 @@
  * ในเครื่องที่ ref/ ไม่อยู่ใน git) หลังแก้มุมกล้องแล้ว — ค่าที่ไม่มีภาพรองรับพอจะระบุว่า "ประมาณการ"
  *
  * ความกว้าง/ตำแหน่ง glyph ใช้ตาราง metric ที่ดึงจากไฟล์ฟอนต์ที่ฝังไว้จริง จึงคำนวณได้แม่นโดยไม่ต้อง
- * วัดใน DOM และไม่ยืด/บีบ glyph เลย (ย่อ/ขยายตามสัดส่วนเท่านั้น) — ฟอนต์ Noto Sans Thai Looped
- * (OFL) instance คงที่ 2 ตัวจากแกน wdth ของฟอนต์ต้นฉบับ ไม่ได้แก้ glyph:
+ * วัดใน DOM — ฟอนต์มี 2 ชุด สลับด้วย PLATE_FONT_STYLE (config/featureFlags.ts):
+ *
+ * ชุด "custom" (ค่าปัจจุบัน) — วางทีละ glyph ตาราง metric สร้างด้วย tools/plate_fonts.py
+ * (plateFontMetrics.generated.ts) ไม่ได้แก้ glyph ในไฟล์ฟอนต์:
+ * - ตัวเลข: Oswald 500 (OFL) ช่องว่างหมึกระหว่างเลขที่ติดกัน = ค่าตามธรรมชาติของคู่นั้น (รวม kerning) × 1.4
+ * - อักษรไทยบรรทัดหลัก: Norasi Bold (GPL-2+ with font exception) พยัญชนะสูงเท่าเลขหัวแบน baseline เดียวกัน
+ *   บีบแนวนอน 0.8 เท่าด้วย transform ใน SVG
+ * - ชื่อจังหวัด: Norasi Bold ไม่บีบ
+ *
+ * ชุด "noto" (เดิม) — ฟอนต์ Noto Sans Thai Looped (OFL) instance คงที่ 2 ตัวจากแกน wdth ไม่ได้แก้ glyph
+ * วางเป็นข้อความต่อกลุ่ม (ผลเหมือนก่อนมีชุด custom ทุกประการ):
  * - บรรทัดหลัก: …-PlateSubset-wdth70.woff2 (wght 800 wdth 70) — วัดจากภาพจริง: ตัวเลข wdth 80
  *   กว้างกว่าจริง ~12% อักษร ~30% ทำให้ช่องว่างระหว่างกลุ่มแคบกว่าจริง wdth 70 ลดช่องนี้ได้มาก
  * - บรรทัดจังหวัด: …-PlateSubset-wdth80.woff2 (wght 800 wdth 80) — ชื่อจังหวัดบนป้ายจริงกว้างกว่า
@@ -15,7 +24,15 @@
  */
 import type { AuctionNumberInfo, PlateInput } from '../engine/types';
 import { formatPlateText, plateTextParts } from '../engine/plateText';
-import { PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
+import { PLATE_FONT_STYLE, PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
+import {
+  NORASI_LETTER_METRICS,
+  NORASI_PROVINCE_ADVANCE_EM,
+  NORASI_PROVINCE_VERTICAL,
+  OSWALD_DIGIT_FLAT_EM,
+  OSWALD_DIGIT_METRICS,
+  OSWALD_DIGIT_PAIR_GAP_EM,
+} from './plateFontMetrics.generated';
 
 export type PlateVariant = 'standard' | 'auction';
 
@@ -41,8 +58,6 @@ const FRAME_INNER_EDGE = PLATE_FRAME.innerInset + PLATE_FRAME.innerStroke / 2;
 const SAFE_MARGIN_W = 0.048;
 const SAFE_MARGIN_TOP_H = 0.045;
 const SAFE_MARGIN_BOTTOM_H = 0.045;
-/** ความลึกสระล่าง ุ ู (em) ของฟอนต์บรรทัดจังหวัด — ลึกกว่าหางพยัญชนะทุกตัว (ฐ 0.322, ญ 0.270) */
-const PROVINCE_LOWER_MARK_EM = 0.327;
 const PROVINCE_CONSONANT_HEIGHT_H = 0.1535;
 
 /**
@@ -99,14 +114,10 @@ export const PLATE_LAYOUT = {
     consonantHeightH: PROVINCE_CONSONANT_HEIGHT_H,
     /**
      * baseline — ป้ายจริงวัด 13/13 มัธยฐาน 88% H แต่ที่ 88% สระล่าง (ุ ของ "กรุง") ทับเส้นขอบในของภาพจำลอง
-     * จึงยกขึ้นให้สระล่างที่ลึกที่สุดของฟอนต์ (0.327 em) ที่ขนาดเต็มอยู่เหนือระยะปลอดภัยล่างพอดี (≈ 80.5% H)
+     * จึงยกขึ้นให้หมึกล่างที่ลึกที่สุดของฟอนต์จังหวัด (Noto 0.327 em, Norasi 0.287 em) ที่ขนาดเต็มอยู่เหนือ
+     * ระยะปลอดภัยล่างพอดี (Noto ≈ 80.5% H, Norasi ≈ 81.6% H) — ค่าขึ้นกับฟอนต์ จึงคำนวณใน provinceBaselineH()
      * ใช้ค่าเดียวทุกชื่อจังหวัด กึ่งกลางแนวนอน (วัด 13/13 เยื้อง ≤ ±0.6% W ยกเว้น 1 แผ่น 2.2%)
      */
-    baselineH:
-      1 -
-      FRAME_INNER_EDGE / PLATE_H -
-      SAFE_MARGIN_BOTTOM_H -
-      (PROVINCE_LOWER_MARK_EM * PROVINCE_CONSONANT_HEIGHT_H) / 0.575,
     /** ความกว้างสูงสุด — "กรุงเทพมหานคร" วัด 13/13 มัธยฐาน 69.4% W (ช่วง 68–76) ฟอนต์นี้กว้างกว่าจริง
      * ~7% ที่ความสูงเท่ากัน จึงจำกัดความกว้างตามค่าวัด (ตัวอักษรเตี้ยลงเล็กน้อยแทนการล้นกว้าง)
      * ชื่อจังหวัดที่ยาวกว่านี้ก็ถูกย่อให้ไม่เกินค่าเดียวกัน (ประมาณการ — ไม่มีภาพจังหวัดอื่น)
@@ -117,10 +128,17 @@ export const PLATE_LAYOUT = {
      * — สบายตา (ที่จอ 390px พยัญชนะจังหวัดยังสูง ≥ 14px) */
     descenderShrinkMin: 0.85,
   },
+  /** ฟอนต์ชุด custom (เลือกจากแกลเลอรีฟอนต์) — ค่าที่ผู้ใช้กำหนด ไม่ได้มาจากป้ายจริง */
+  customFont: {
+    /** ช่องว่างหมึกระหว่างเลขที่ติดกัน = ค่าตามธรรมชาติของคู่นั้นใน Oswald 500 × ค่านี้ */
+    digitSpacing: 1.4,
+    /** บีบความกว้างพยัญชนะไทยบรรทัดหลัก (transform: scale แนวนอน ทุกชั้นของตัวนูนใช้ค่าเดียวกัน) */
+    letterScaleX: 0.8,
+  },
 } as const;
 
 
-/** metric ของฟอนต์บรรทัดหลัก wdth 70 (หน่วย em): [advance, left bearing, right bearing, yMin, yMax] */
+/** ชุด noto: metric ของฟอนต์บรรทัดหลัก Noto wdth 70 (หน่วย em): [advance, left bearing, right bearing, yMin, yMax] */
 type GlyphMetric = readonly [number, number, number, number, number];
 const GLYPH_METRICS: Record<string, GlyphMetric> = {
   '0': [0.499, 0.037, 0.036, -0.010, 0.724],
@@ -190,7 +208,7 @@ const GLYPH_METRICS: Record<string, GlyphMetric> = {
   'ๅ': [0.350, -0.001, 0.053, -0.239, 0.572],
   'ๆ': [0.490, 0.021, 0.052, -0.239, 0.571]
 };
-/** advance (em) ของฟอนต์บรรทัดจังหวัด wdth 80 — ใช้คำนวณความกว้างชื่อจังหวัดเท่านั้น */
+/** ชุด noto: advance (em) ของฟอนต์บรรทัดจังหวัด Noto wdth 80 — ใช้คำนวณความกว้างชื่อจังหวัดเท่านั้น */
 const PROVINCE_ADVANCE_EM: Record<string, number> = {
   ก: 0.564, ข: 0.519, ฃ: 0.540, ค: 0.585, ฅ: 0.585, ฆ: 0.569, ง: 0.482, จ: 0.494,
   ฉ: 0.566, ช: 0.517, ซ: 0.531, ฌ: 0.805, ญ: 0.795, ฎ: 0.570, ฏ: 0.570, ฐ: 0.510,
@@ -200,84 +218,243 @@ const PROVINCE_ADVANCE_EM: Record<string, number> = {
   ษ: 0.605, ส: 0.531, ห: 0.592, ฬ: 0.655, อ: 0.538, ฮ: 0.546, ะ: 0.369, า: 0.380,
   ำ: 0.380, เ: 0.314, แ: 0.581, โ: 0.332, ใ: 0.332, ไ: 0.323, ๅ: 0.380, ๆ: 0.527,
 };
-const THAI_COMBINING_MARK = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/;
+const THAI_COMBINING_MARK = /[ัิ-ฺ็-๎]/;
 /** ตัวที่ไม่อยู่ในตาราง (ไม่ควรเกิด) — เผื่อกว้างไว้ก่อนเพื่อไม่ให้ล้นกรอบ */
 const UNKNOWN_GLYPH: GlyphMetric = [0.85, 0, 0, -0.33, 0.75];
-/** ความสูงหมึกของตัวเลข (yMax) และพยัญชนะไทย ในฟอนต์นี้ */
-const DIGIT_CAP_EM = 0.724;
-const THAI_CONSONANT_EM = 0.575;
-/** ขนาดฟอนต์อักษรไทย ÷ ขนาดฟอนต์ตัวเลข ให้หมึกสูงเท่ากันตาม PLATE_LAYOUT.letterToDigitHeight */
-export const LETTER_FONT_RATIO = (DIGIT_CAP_EM / THAI_CONSONANT_EM) * PLATE_LAYOUT.letterToDigitHeight;
+const TALL_CONSONANT = /[ปฝฟฬ]/;
+const LEADING_VOWEL = /[โใไ]/;
+const UPPER_VOWEL = /[ัิ-ื็ํ]/;
+const TONE_MARK = /[่-์]/;
+const UPPER_MARK = /[ัิ-ื็-๎]/;
+const LOWER_MARK = /[ุ-ฺ]/;
 
-function metric(ch: string): GlyphMetric {
-  return GLYPH_METRICS[ch] ?? UNKNOWN_GLYPH;
+export type PlateFontStyle = 'custom' | 'noto';
+
+/** ชุดฟอนต์ของภาพป้าย: ตาราง metric + กติกาการวางที่ขึ้นกับฟอนต์ (หน่วย em) */
+export interface PlateFontProfile {
+  style: PlateFontStyle;
+  /** 'runs' = ข้อความต่อกลุ่ม ช่องไฟตามฟอนต์ (Noto เดิม) · 'glyphs' = วางทีละตัว ช่องไฟ/บีบตามกติกาด้านล่าง */
+  placement: 'runs' | 'glyphs';
+  digits: Record<string, GlyphMetric>;
+  letters: Record<string, GlyphMetric>;
+  /** ยอดหมึกสูงสุดของตัวเลข — ความสูงตัวเลข (digitHeightH) และระยะปลอดภัยบนวัดจากค่านี้ */
+  digitCapEm: number;
+  /** ขนาดฟอนต์อักษรไทย ÷ ขนาดฟอนต์ตัวเลข ให้พยัญชนะสูงเท่าตัวเลข */
+  letterFontRatio: number;
+  /** บีบแนวนอนของอักษรไทยบรรทัดหลัก (1 = ไม่บีบ) */
+  letterScaleX: number;
+  /** glyphs: ช่องว่างหมึกระหว่างเลขสองตัวที่ติดกัน (em ของขนาดตัวเลข) */
+  digitGapEm: (left: string, right: string) => number;
+  /** glyphs: ช่องว่างหมึกระหว่างอักษรไทย และระหว่างเลขหน้ากับอักษรตัวแรก (em ของขนาดตัวเลข) */
+  letterGapEm: number;
+  province: {
+    advance: Record<string, number>;
+    /** ความสูงพยัญชนะ */
+    consonantEm: number;
+    /** หมึกล่างลึกสุด (สระล่าง/หางพยัญชนะ) */
+    lowerMarkEm: number;
+    /** สระบน/วรรณยุกต์ 1 ชั้นบนพยัญชนะทั่วไป */
+    upperMarkEm: number;
+    /** วรรณยุกต์ซ้อนบนสระบน หรือเครื่องหมายบนอักษรหัวสูง */
+    stackedMarkEm: number;
+    /** โ ใ ไ */
+    leadingVowelEm: number;
+    /** ป ฝ ฟ ฬ */
+    tallConsonantEm: number;
+    /** ำ (นิคหิตอยู่บน) — ไม่มี = ไม่นับ (พฤติกรรมเดิมของชุด noto) */
+    saraAmEm?: number;
+    /** ยอดพยัญชนะทั่วไปที่สูงที่สุด (เช่น ช ฮ สูงกว่า ก) — มีค่า = นับความสูงพยัญชนะรายตัวจาก letters
+     * (ฟอนต์จังหวัดต้องเป็นฟอนต์เดียวกับอักษรบรรทัดหลัก) · ไม่มี = ใช้ consonantEm (พฤติกรรมเดิมของชุด noto) */
+    consonantTopEm?: number;
+  };
+  /** ป้ายที่อักษรมีหาง: ความสูงตัวเลขเป้าหมายที่ยอมย่อชื่อจังหวัด (ไม่ต่ำกว่า descenderShrinkMin) เพื่อให้ได้ */
+  descenderTargetH: number;
+  /** ป้ายที่อักษรมีหาง: ห้ามย่อพยัญชนะจังหวัดต่ำกว่าค่านี้ (สัดส่วนของ H) — ไม่มี = ไม่จำกัด (ชุด noto เดิม) */
+  provinceMinConsonantH?: number;
+}
+
+/** ชุดเดิม: Noto Sans Thai Looped ทั้งหมด — ค่าทุกตัวเหมือนก่อนมีชุด custom */
+export const NOTO_PLATE_FONT: PlateFontProfile = {
+  style: 'noto',
+  placement: 'runs',
+  digits: GLYPH_METRICS,
+  letters: GLYPH_METRICS,
+  digitCapEm: 0.724,
+  letterFontRatio: (0.724 / 0.575) * PLATE_LAYOUT.letterToDigitHeight,
+  letterScaleX: 1,
+  digitGapEm: () => 0,
+  letterGapEm: 0,
+  province: {
+    advance: PROVINCE_ADVANCE_EM,
+    consonantEm: 0.575,
+    lowerMarkEm: 0.327, // สระล่าง ุ ู — ลึกกว่าหางพยัญชนะทุกตัว (ฐ 0.322, ญ 0.270)
+    upperMarkEm: 0.943, // สระบน/วรรณยุกต์ 0.858–0.943 (สูงสุด = ไม้ไต่คู้)
+    stackedMarkEm: 1.2, // ประมาณการเผื่อไว้ (ตรวจกับภาพเรนเดอร์)
+    leadingVowelEm: 0.933,
+    tallConsonantEm: 0.788, // ป ฝ ฟ 0.760, ฬ 0.788
+  },
+  descenderTargetH: PLATE_LAYOUT.minDigitHeightH,
+};
+
+const DIGIT_GAPS = Object.values(OSWALD_DIGIT_PAIR_GAP_EM);
+/** ช่องว่างหมึกตามธรรมชาติเฉลี่ยของเลขที่ติดกันทุกคู่ (100 คู่) ใน Oswald 500 */
+export const OSWALD_MEAN_DIGIT_GAP_EM = DIGIT_GAPS.reduce((a, b) => a + b, 0) / DIGIT_GAPS.length;
+
+/**
+ * ชุด custom: เลข Oswald 500 + อักษร/จังหวัด Norasi Bold (ตาราง metric จาก tools/plate_fonts.py)
+ * - ช่องไฟเลข: ช่องว่างหมึกของแต่ละคู่ × digitSpacing (คงจังหวะช่องไฟที่ผู้ออกแบบฟอนต์ตั้งไว้ เช่น 1 กับ 7 ห่างต่างกัน)
+ * - ช่องไฟอักษรไทย (และเลขหน้า → อักษร): ค่าเฉลี่ยช่องไฟเลขหลังคูณแล้ว — ช่องว่างหมึกเท่าช่องไฟเลขโดยเฉลี่ย
+ *   ให้ทั้งบรรทัดมีจังหวะเดียวกัน (ช่องไฟธรรมชาติของ Norasi ที่บีบ 0.8 แล้วยังกว้างกว่าเลขราว 20%)
+ * - พยัญชนะสูงเท่าเลขหัวแบน (1 4 7) baseline เดียวกัน · ความสูงตัวเลขวัดจากยอดเลขหัวมน (overshoot)
+ * - ป้ายที่อักษรมีหาง: ยอมย่อชื่อจังหวัด (ไม่ต่ำกว่า 85%) เพื่อให้ตัวเลขใกล้ 41.5% H มากที่สุด
+ */
+export const CUSTOM_PLATE_FONT: PlateFontProfile = {
+  style: 'custom',
+  placement: 'glyphs',
+  digits: OSWALD_DIGIT_METRICS,
+  letters: NORASI_LETTER_METRICS,
+  digitCapEm: Math.max(...Object.values(OSWALD_DIGIT_METRICS).map((m) => m[4])),
+  letterFontRatio: (OSWALD_DIGIT_FLAT_EM / NORASI_PROVINCE_VERTICAL.consonantEm) * PLATE_LAYOUT.letterToDigitHeight,
+  letterScaleX: PLATE_LAYOUT.customFont.letterScaleX,
+  digitGapEm: (left, right) =>
+    (OSWALD_DIGIT_PAIR_GAP_EM[left + right] ?? OSWALD_MEAN_DIGIT_GAP_EM) * PLATE_LAYOUT.customFont.digitSpacing,
+  letterGapEm: OSWALD_MEAN_DIGIT_GAP_EM * PLATE_LAYOUT.customFont.digitSpacing,
+  province: { advance: NORASI_PROVINCE_ADVANCE_EM, ...NORASI_PROVINCE_VERTICAL },
+  descenderTargetH: PLATE_LAYOUT.digitHeightH,
+  // 13px ที่ป้ายกว้าง 260px (ขนาดภาพป้ายใน #single ที่จอ 390px) = 13 / (260 / 2.34) ≈ 11.7% H
+  // ไม่มีกฎนี้ "พระนครศรีอยุธยา" บนป้ายอักษรมีหาง (เช่น 0ฐร) เหลือ 12.5px
+  provinceMinConsonantH: 13 / (260 / PLATE_LAYOUT.aspect),
+};
+
+export const PLATE_FONT_PROFILES: Record<PlateFontStyle, PlateFontProfile> = {
+  custom: CUSTOM_PLATE_FONT,
+  noto: NOTO_PLATE_FONT,
+};
+
+/** ชุดฟอนต์ที่ตั้งไว้ใน featureFlags.ts (PlateImage อาจถอยไปชุด noto เองถ้าฟอนต์ custom โหลดไม่สำเร็จ) */
+export const PLATE_FONT_PROFILE: PlateFontProfile = PLATE_FONT_PROFILES[PLATE_FONT_STYLE];
+
+/** ชุดฟอนต์ที่ใช้จริง: ตั้งเป็น noto หรือฟอนต์ custom โหลดไม่สำเร็จ → noto */
+export function resolvePlateFontProfile(
+  style: PlateFontStyle,
+  customFontStatus: 'pending' | 'loaded' | 'failed',
+): PlateFontProfile {
+  return style === 'noto' || customFontStatus === 'failed' ? NOTO_PLATE_FONT : CUSTOM_PLATE_FONT;
+}
+
+function digitMetric(ch: string, font: PlateFontProfile): GlyphMetric {
+  return font.digits[ch] ?? font.letters[ch] ?? UNKNOWN_GLYPH;
+}
+function letterMetric(ch: string, font: PlateFontProfile): GlyphMetric {
+  return font.letters[ch] ?? UNKNOWN_GLYPH;
+}
+function inkEm(m: GlyphMetric): number {
+  return m[0] - m[1] - m[2];
 }
 
 /** ความกว้างชื่อจังหวัด (em) ในฟอนต์บรรทัดจังหวัด — สระ/วรรณยุกต์บน-ล่างเป็น 0 */
-export function provinceWidthEm(text: string): number {
+export function provinceWidthEm(text: string, font: PlateFontProfile = PLATE_FONT_PROFILE): number {
   let w = 0;
   for (const ch of text) {
     if (THAI_COMBINING_MARK.test(ch)) continue;
-    w += PROVINCE_ADVANCE_EM[ch] ?? UNKNOWN_GLYPH[0];
+    w += font.province.advance[ch] ?? UNKNOWN_GLYPH[0];
   }
   return w;
 }
 
 /** ความกว้างตาม advance (em) — สระ/วรรณยุกต์บน-ล่างเป็น 0 (combining mark) */
-export function textWidthEm(text: string): number {
+export function textWidthEm(text: string, font: PlateFontProfile = PLATE_FONT_PROFILE): number {
   let w = 0;
   for (const ch of text) {
     if (THAI_COMBINING_MARK.test(ch)) continue;
-    w += metric(ch)[0];
+    w += digitMetric(ch, font)[0];
   }
   return w;
 }
 
-/** ความกว้างหมึกจริง (em) = advance รวม − bearing ซ้ายตัวแรก − bearing ขวาตัวสุดท้าย */
-export function inkWidthEm(text: string): number {
+/**
+ * ความกว้างหมึกจริงของเลข (em ของขนาดตัวเลข)
+ * - runs: advance รวม − bearing ซ้ายตัวแรก − bearing ขวาตัวสุดท้าย
+ * - glyphs: หมึกแต่ละตัวรวมกัน + ช่องไฟระหว่างคู่ (digitGapEm)
+ */
+export function inkWidthEm(text: string, font: PlateFontProfile = PLATE_FONT_PROFILE): number {
   const chars = [...text].filter((ch) => !THAI_COMBINING_MARK.test(ch));
   if (chars.length === 0) return 0;
-  return textWidthEm(text) - metric(chars[0])[1] - metric(chars[chars.length - 1])[2];
+  if (font.placement === 'glyphs') {
+    let w = 0;
+    chars.forEach((ch, i) => {
+      w += inkEm(digitMetric(ch, font));
+      if (i > 0) w += font.digitGapEm(chars[i - 1], ch);
+    });
+    return w;
+  }
+  return textWidthEm(text, font) - digitMetric(chars[0], font)[1] - digitMetric(chars[chars.length - 1], font)[2];
+}
+
+/** ความกว้างหมึกของกลุ่มหน้า (เลขหน้า + อักษร) หน่วย em ของขนาดตัวเลข */
+export function frontGroupInkEm(front: string | null, letters: string, font: PlateFontProfile = PLATE_FONT_PROFILE): number {
+  const R = font.letterFontRatio;
+  const chars = [...letters];
+  if (font.placement === 'glyphs') {
+    let w = 0;
+    chars.forEach((ch, i) => {
+      w += inkEm(letterMetric(ch, font)) * R * font.letterScaleX;
+      if (i > 0) w += font.letterGapEm;
+    });
+    if (front !== null) w += inkEm(digitMetric(front, font)) + font.letterGapEm;
+    return w;
+  }
+  const frontAdvEm = front === null ? 0 : textWidthEm(front, font);
+  const lettersAdvEm = chars.reduce((a, ch) => a + letterMetric(ch, font)[0], 0) * R;
+  const firstLeftBearingEm = front === null ? letterMetric(chars[0] ?? '', font)[1] * R : digitMetric(front, font)[1];
+  const lastLetter = chars[chars.length - 1] ?? '';
+  return frontAdvEm + lettersAdvEm - firstLeftBearingEm - letterMetric(lastLetter, font)[2] * R;
 }
 
 /** ความลึกของหางล่างที่ลึกที่สุดในข้อความ (em, ค่าบวก) */
-function descenderEm(text: string): number {
+function descenderEm(text: string, font: PlateFontProfile): number {
   let d = 0;
-  for (const ch of text) d = Math.max(d, -metric(ch)[3]);
+  for (const ch of text) d = Math.max(d, -letterMetric(ch, font)[3]);
   return d;
 }
 
 /** ยอดหมึกสูงสุดในข้อความ (em) ตาม yMax ของ glyph — อักษรหัวสูง ป ฝ ฟ ฬ สูงกว่าตัวเลข */
-function ascenderEm(text: string): number {
+function ascenderEm(text: string, font: PlateFontProfile): number {
   let a = 0;
-  for (const ch of text) a = Math.max(a, metric(ch)[4]);
+  for (const ch of text) a = Math.max(a, letterMetric(ch, font)[4]);
   return a;
 }
 
-/** yMax (em) ของฟอนต์บรรทัดจังหวัด วัดจากไฟล์ฟอนต์ */
-const PROVINCE_UPPER_MARK_EM = 0.943; // สระบน/วรรณยุกต์ 0.858–0.943 (สูงสุด = ไม้ไต่คู้)
-const PROVINCE_LEADING_VOWEL_EM = 0.933; // โ ใ ไ
-const PROVINCE_TALL_CONSONANT_EM = 0.788; // ป ฝ ฟ 0.760, ฬ 0.788
-/** วรรณยุกต์ซ้อนบนสระบน หรือเครื่องหมายบนอักษรหัวสูง ถูกยกขึ้นอีกชั้น — ประมาณการเผื่อไว้ (ตรวจกับภาพเรนเดอร์) */
-const PROVINCE_STACKED_MARK_EM = 1.2;
-const TALL_CONSONANT = /[ปฝฟฬ]/;
-const LEADING_VOWEL = /[โใไ]/;
-const UPPER_VOWEL = /[\u0E31\u0E34-\u0E37\u0E47\u0E4D]/;
-const TONE_MARK = /[\u0E48-\u0E4C]/;
-const UPPER_MARK = /[\u0E31\u0E34-\u0E37\u0E47-\u0E4E]/;
-const LOWER_MARK = /[\u0E38-\u0E3A]/;
+/** baseline ของบรรทัดจังหวัด (สัดส่วนของ H): หมึกล่างที่ลึกที่สุดของฟอนต์ที่ขนาดเต็มชิดระยะปลอดภัยล่างพอดี */
+export function provinceBaselineH(font: PlateFontProfile = PLATE_FONT_PROFILE): number {
+  return (
+    1 -
+    FRAME_INNER_EDGE / PLATE_H -
+    SAFE_MARGIN_BOTTOM_H -
+    (font.province.lowerMarkEm * PROVINCE_CONSONANT_HEIGHT_H) / font.province.consonantEm
+  );
+}
 
 /** ยอดหมึกสูงสุดของชื่อจังหวัด (em) รวมสระบน/วรรณยุกต์ */
-export function provinceAscentEm(text: string): number {
-  let a = THAI_CONSONANT_EM;
+export function provinceAscentEm(text: string, font: PlateFontProfile = PLATE_FONT_PROFILE): number {
+  const P = font.province;
+  let a = P.consonantEm;
   let prev = '';
   let base = '';
   for (const ch of text) {
-    if (TALL_CONSONANT.test(ch)) a = Math.max(a, PROVINCE_TALL_CONSONANT_EM);
-    if (LEADING_VOWEL.test(ch)) a = Math.max(a, PROVINCE_LEADING_VOWEL_EM);
+    if (TALL_CONSONANT.test(ch)) a = Math.max(a, P.tallConsonantEm);
+    if (LEADING_VOWEL.test(ch)) a = Math.max(a, P.leadingVowelEm);
+    // ชุด custom: พยัญชนะบางตัวหัวสูงกว่า ก เล็กน้อย (ช ซ ศ ส ฮ) — บรรทัดจังหวัดกับอักษรบรรทัดหลักเป็นฟอนต์เดียวกัน
+    // (Norasi Bold) จึงใช้ yMax จากตาราง letters ได้ตรงตัว (ไม่เกิน consonantTopEm)
+    if (P.consonantTopEm !== undefined && !TALL_CONSONANT.test(ch) && font.letters[ch]) {
+      a = Math.max(a, Math.min(font.letters[ch][4], P.consonantTopEm));
+    }
+    if (ch === '\u0E33' && P.saraAmEm !== undefined) {
+      a = Math.max(a, TONE_MARK.test(prev) ? P.stackedMarkEm : P.saraAmEm);
+    }
     if (UPPER_MARK.test(ch)) {
       const stacked = (TONE_MARK.test(ch) && UPPER_VOWEL.test(prev)) || TALL_CONSONANT.test(base);
-      a = Math.max(a, stacked ? PROVINCE_STACKED_MARK_EM : PROVINCE_UPPER_MARK_EM);
+      a = Math.max(a, stacked ? P.stackedMarkEm : P.upperMarkEm);
     } else if (!LOWER_MARK.test(ch)) {
       base = ch;
     }
@@ -331,6 +508,10 @@ export interface PlateTextLine {
   x: number;
   y: number;
   fontSize: number;
+  /** บรรทัดหลัก: ตัวเลขหรืออักษรไทย (เลือกฟอนต์ตามนี้) — บรรทัดจังหวัดไม่มีค่านี้ */
+  role?: 'digit' | 'letter';
+  /** บีบ/ขยายแนวนอน (transform: scale(scaleX 1)) — ไม่มี = 1 */
+  scaleX?: number;
 }
 
 export interface PlateLayout {
@@ -342,13 +523,17 @@ export interface PlateLayout {
   plateText: string;
   provinceLabel: string | null;
   ariaLabel: string;
-  /** บรรทัดบนแยกเป็นช่วง (เลขหน้า / อักษร / เลขท้าย) ทุกช่วงใช้ text-anchor="start" */
+  /** ชุดฟอนต์ที่ใช้คำนวณ — PlateImage เลือก font-family ตามนี้ */
+  fontStyle: PlateFontStyle;
+  /** บรรทัดบน — noto: แยกเป็นช่วง (เลขหน้า / อักษร / เลขท้าย) · custom: ทีละ glyph · ทุกช่วงใช้ text-anchor="start" */
   topRuns: PlateTextLine[];
   /** ขอบหมึกของกลุ่มหน้าและกลุ่มเลขท้าย (หน่วย viewBox) — ใช้ตรวจ/ทดสอบ */
   frontGroupInk: { x0: number; x1: number };
   tailGroupInk: { x0: number; x1: number };
   /** ขนาดตัวเลข (font-size) และ baseline บรรทัดหลัก */
   digitFontSize: number;
+  /** ขนาดฟอนต์อักษรไทยบรรทัดหลัก */
+  letterFontSize: number;
   mainBaseline: number;
   /** ขอบล่างสุดของหมึกบรรทัดหลัก (รวมหางอักษร) */
   /** ยอดหมึกบรรทัดหลัก (รวมอักษรหัวสูง ป ฝ ฟ ฬ) */
@@ -370,10 +555,13 @@ export function buildPlateAriaLabel(
   return `ภาพจำลองป้ายทะเบียน ${plateText}${province}${kind}`;
 }
 
-export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
+export function buildPlateLayout(input: PlateLayoutInput, font: PlateFontProfile = PLATE_FONT_PROFILE): PlateLayout {
   const L = PLATE_LAYOUT;
   const W = PLATE_W;
   const H = PLATE_H;
+  const P = font.province;
+  const R = font.letterFontRatio;
+  const CAP = font.digitCapEm;
   const { front, letters, tail } = plateTextParts(input);
   const prefix = front === null ? letters : `${front}${letters}`;
   const provinceRaw = input.provinceLabel?.trim();
@@ -385,44 +573,43 @@ export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
   const minGap = L.minGroupGapW * W;
 
   // ---- บรรทัดหลัก: ความกว้าง (em ของขนาดตัวเลข) ----
-  // กลุ่มหน้า: เลขหน้า (ขนาดตัวเลข) + อักษร (ขนาด × LETTER_FONT_RATIO) ติดกันตาม advance ปกติ
-  const frontAdvEm = front === null ? 0 : textWidthEm(front);
-  const lettersAdvEm = textWidthEm(letters) * LETTER_FONT_RATIO;
-  const firstLeftBearingEm =
-    front === null ? metric(letters[0] ?? '')[1] * LETTER_FONT_RATIO : metric(front)[1];
-  const lastLetter = [...letters].pop() ?? '';
-  const frontInkEm = frontAdvEm + lettersAdvEm - firstLeftBearingEm - metric(lastLetter)[2] * LETTER_FONT_RATIO;
-  const tailInkEm = inkWidthEm(tail);
-  const descEm = descenderEm(letters) * LETTER_FONT_RATIO;
+  // กลุ่มหน้า: เลขหน้า (ขนาดตัวเลข) + อักษร (ขนาด × letterFontRatio)
+  const frontInkEm = frontGroupInkEm(front, letters, font);
+  const tailInkEm = inkWidthEm(tail, font);
+  const descEm = descenderEm(letters, font) * R;
 
   // ขนาดตัวเลขตามค่าวัด แล้วย่อทั้งบรรทัดด้วยอัตราส่วนเดียวเมื่อกว้างเกินพื้นที่ในระยะปลอดภัยเท่านั้น
-  let size = (L.digitHeightH * H) / DIGIT_CAP_EM;
+  let size = (L.digitHeightH * H) / CAP;
   size = Math.min(size, (contentRight - contentLeft - minGap) / (frontInkEm + tailInkEm));
   const minTop = L.minTopMarginH * H;
-  const topEm = Math.max(DIGIT_CAP_EM, ascenderEm(letters) * LETTER_FONT_RATIO);
+  const topEm = Math.max(CAP, ascenderEm(letters, font) * R);
 
   // ---- บรรทัดจังหวัด (ยอดหมึกบรรทัดนี้จำกัดขอบล่างของบรรทัดหลัก) ----
-  // ปกติ baseline คงที่ (สระล่างที่ลึกที่สุดที่ขนาดเต็มอยู่เหนือระยะปลอดภัยล่างพอดี)
+  // ปกติ baseline คงที่ (หมึกล่างที่ลึกที่สุดที่ขนาดเต็มอยู่เหนือระยะปลอดภัยล่างพอดี)
   // provinceTop = หมึกบนสุดรวมสระบน/วรรณยุกต์
   let provinceLine: PlateTextLine | null = null;
   let provinceTop: number | null = null;
   if (provinceLabel !== null) {
-    const byHeight = (L.province.consonantHeightH * H) / THAI_CONSONANT_EM;
-    const byWidth = (L.province.maxWidthW * W) / Math.max(provinceWidthEm(provinceLabel), 0.01);
+    const byHeight = (L.province.consonantHeightH * H) / P.consonantEm;
+    const byWidth = (L.province.maxWidthW * W) / Math.max(provinceWidthEm(provinceLabel, font), 0.01);
     let pSize = Math.min(byHeight, byWidth);
-    let pBaseline = L.province.baselineH * H;
-    const ascEm = provinceAscentEm(provinceLabel);
+    let pBaseline = provinceBaselineH(font) * H;
+    const ascEm = provinceAscentEm(provinceLabel, font);
     if (descEm > 0) {
       // อักษรมีหาง: ย่อจังหวัดเท่าที่จำเป็นให้ตัวเลขได้ขนาดเป้าหมาย (ไม่เกินที่ความกว้างอนุญาต) แล้ววาง baseline
-      // ให้สระล่างที่ลึกที่สุดชิดระยะปลอดภัยล่างตามขนาดใหม่
-      const safeBottom = pBaseline + PROVINCE_LOWER_MARK_EM * byHeight;
-      const target = Math.min(size, (L.minDigitHeightH * H) / DIGIT_CAP_EM);
+      // ให้หมึกล่างที่ลึกที่สุดชิดระยะปลอดภัยล่างตามขนาดใหม่
+      const safeBottom = pBaseline + P.lowerMarkEm * byHeight;
+      const target = Math.min(size, (font.descenderTargetH * H) / CAP);
       const needTop = minTop + target * (topEm + descEm) + L.descenderClearanceH * H;
-      const fit = (safeBottom - needTop) / (PROVINCE_LOWER_MARK_EM + ascEm);
-      const shrunk = Math.min(pSize, Math.max(fit, pSize * L.province.descenderShrinkMin));
+      const fit = (safeBottom - needTop) / (P.lowerMarkEm + ascEm);
+      const floor = Math.max(
+        pSize * L.province.descenderShrinkMin,
+        font.provinceMinConsonantH === undefined ? 0 : (font.provinceMinConsonantH * H) / P.consonantEm,
+      );
+      const shrunk = Math.min(pSize, Math.max(fit, floor));
       if (shrunk < pSize) {
         pSize = shrunk;
-        pBaseline = safeBottom - PROVINCE_LOWER_MARK_EM * pSize;
+        pBaseline = safeBottom - P.lowerMarkEm * pSize;
       }
     }
     provinceLine = { text: provinceLabel, x: W / 2, y: round2(pBaseline), fontSize: round2(pSize) };
@@ -440,7 +627,7 @@ export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
     provinceTop !== null
       ? L.mainBaselineH * H
       : // ไม่มีบรรทัดจังหวัด: จัดตัวเลขกึ่งกลางแนวตั้ง (ประมาณการ — ไม่มีภาพป้ายจริงกรณีนี้)
-        H / 2 + (DIGIT_CAP_EM * size) / 2;
+        H / 2 + (CAP * size) / 2;
   baseline = Math.min(baseline, limit - descEm * size);
   baseline = Math.max(baseline, minTop + topEm * size);
 
@@ -464,21 +651,12 @@ export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
   }
   const tx0 = tx1 - tailW;
 
-  const letterSize = size * LETTER_FONT_RATIO;
+  const letterSize = size * R;
   const topY = round2(baseline);
-  const topRuns: PlateTextLine[] = [];
-  let x = fx0 - firstLeftBearingEm * size;
-  if (front !== null) {
-    topRuns.push({ text: front, x: round2(x), y: topY, fontSize: round2(size) });
-    x += frontAdvEm * size;
-  }
-  topRuns.push({ text: letters, x: round2(x), y: topY, fontSize: round2(letterSize) });
-  topRuns.push({
-    text: tail,
-    x: round2(tx0 - metric(tail[0] ?? '')[1] * size),
-    y: topY,
-    fontSize: round2(size),
-  });
+  const topRuns: PlateTextLine[] =
+    font.placement === 'glyphs'
+      ? placeGlyphs(front, letters, tail, fx0, tx0, size, topY, font)
+      : placeRuns(front, letters, tail, fx0, tx0, size, topY, font);
 
   return {
     prefix,
@@ -486,16 +664,86 @@ export function buildPlateLayout(input: PlateLayoutInput): PlateLayout {
     plateText,
     provinceLabel,
     ariaLabel: buildPlateAriaLabel(plateText, provinceLabel, input.variant),
+    fontStyle: font.style,
     topRuns,
     frontGroupInk: { x0: round2(fx0), x1: round2(fx0 + frontW) },
     tailGroupInk: { x0: round2(tx0), x1: round2(tx1) },
     digitFontSize: round2(size),
+    letterFontSize: round2(letterSize),
     mainBaseline: topY,
     mainInkTop: round2(baseline - topEm * size),
     mainInkBottom: round2(baseline + descEm * size),
     provinceLine,
     provinceTop: provinceTop === null ? null : round2(provinceTop),
   };
+}
+
+/** ชุด noto: ข้อความต่อกลุ่ม (เลขหน้า / อักษร / เลขท้าย) ช่องไฟตามฟอนต์ */
+function placeRuns(
+  front: string | null,
+  letters: string,
+  tail: string,
+  fx0: number,
+  tx0: number,
+  size: number,
+  y: number,
+  font: PlateFontProfile,
+): PlateTextLine[] {
+  const R = font.letterFontRatio;
+  const runs: PlateTextLine[] = [];
+  const firstLeftBearingEm = front === null ? letterMetric(letters[0] ?? '', font)[1] * R : digitMetric(front, font)[1];
+  let x = fx0 - firstLeftBearingEm * size;
+  if (front !== null) {
+    runs.push({ text: front, x: round2(x), y, fontSize: round2(size), role: 'digit' });
+    x += textWidthEm(front, font) * size;
+  }
+  runs.push({ text: letters, x: round2(x), y, fontSize: round2(size * R), role: 'letter' });
+  runs.push({ text: tail, x: round2(tx0 - digitMetric(tail[0] ?? '', font)[1] * size), y, fontSize: round2(size), role: 'digit' });
+  return runs;
+}
+
+/** ชุด custom: วางทีละ glyph ตามขอบหมึก — ช่องไฟเลข digitGapEm, อักษร letterGapEm, อักษรบีบ letterScaleX */
+function placeGlyphs(
+  front: string | null,
+  letters: string,
+  tail: string,
+  fx0: number,
+  tx0: number,
+  size: number,
+  y: number,
+  font: PlateFontProfile,
+): PlateTextLine[] {
+  const runs: PlateTextLine[] = [];
+  const letterSize = size * font.letterFontRatio;
+  const sx = font.letterScaleX;
+  /** วาง glyph ให้ขอบหมึกซ้ายอยู่ที่ inkX แล้วคืนค่าความกว้างหมึก */
+  const put = (ch: string, role: 'digit' | 'letter', inkX: number): number => {
+    const m = role === 'digit' ? digitMetric(ch, font) : letterMetric(ch, font);
+    const fs = role === 'digit' ? size : letterSize;
+    const k = role === 'digit' ? 1 : sx;
+    runs.push({
+      text: ch,
+      x: round2(inkX - m[1] * fs * k),
+      y,
+      fontSize: round2(fs),
+      role,
+      ...(k !== 1 ? { scaleX: k } : {}),
+    });
+    return inkEm(m) * fs * k;
+  };
+  let x = fx0;
+  if (front !== null) x += put(front, 'digit', x) + font.letterGapEm * size;
+  [...letters].forEach((ch, i) => {
+    if (i > 0) x += font.letterGapEm * size;
+    x += put(ch, 'letter', x);
+  });
+  x = tx0;
+  const digits = [...tail];
+  digits.forEach((ch, i) => {
+    if (i > 0) x += font.digitGapEm(digits[i - 1], ch) * size;
+    x += put(ch, 'digit', x);
+  });
+  return runs;
 }
 
 function round2(n: number): number {

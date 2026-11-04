@@ -19,3 +19,11 @@ export const FEATURE_FLAGS = {
  * - null: ปิดบรรทัดจังหวัดบนภาพป้ายทั้งระบบ (แม้ผู้ใช้กรอกจังหวัดไว้)
  */
 export const PLATE_IMAGE_DEFAULT_PROVINCE: string | null = 'กรุงเทพมหานคร';
+
+/**
+ * ชุดฟอนต์ของภาพจำลองป้ายทะเบียน (PlateImage) — จุดเดียวที่ตั้งค่านี้ เปลี่ยนบรรทัดเดียวเพื่อสลับกลับ
+ * - 'custom': ตัวเลข Oswald 500 + อักษรไทย/ชื่อจังหวัด Norasi Bold (ตารางเลย์เอาต์จาก tools/plate_fonts.py)
+ * - 'noto': Noto Sans Thai Looped ทั้งหมด (ชุดเดิม ผลเหมือนก่อนมีชุด custom ทุกประการ)
+ * ถ้าตั้งเป็น 'custom' แต่ไฟล์ฟอนต์โหลดไม่สำเร็จ PlateImage จะถอยไปใช้ชุด 'noto' เอง
+ */
+export const PLATE_FONT_STYLE: 'custom' | 'noto' = 'custom';

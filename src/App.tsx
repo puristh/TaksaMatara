@@ -13,6 +13,7 @@ import { FiveElementPage } from './components/FiveElementPage';
 import { Ayatana6Page } from './components/Ayatana6Page';
 import { BirthdayCompatPage } from './components/BirthdayCompatPage';
 import { ComparePage } from './components/ComparePage';
+import { FontLicensesPage } from './components/FontLicensesPage';
 import { FEATURE_FLAGS } from './config/featureFlags';
 
 type View =
@@ -22,7 +23,8 @@ type View =
   | 'five-element'
   | 'ayatana6'
   | 'birthday-compat'
-  | 'compare';
+  | 'compare'
+  | 'font-licenses';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -58,6 +60,7 @@ const VALID_VIEWS: View[] = [
   'ayatana6',
   'birthday-compat',
   'compare',
+  'font-licenses',
 ];
 
 function isView(value: string): value is View {
@@ -347,7 +350,22 @@ export default function App() {
         ) : null
       ) : view === 'compare' ? (
         <ComparePage initialFirstSlot={compareInitialInput} />
+      ) : view === 'font-licenses' ? (
+        <FontLicensesPage />
       ) : null}
+
+      {/* ลิงก์เล็กท้ายทุกหน้า — ใบอนุญาตของฟอนต์ที่ฝังในภาพป้าย (OFL / GPL + font exception) */}
+      <footer className="app-footer">
+        <a
+          href="#font-licenses"
+          onClick={(e) => {
+            e.preventDefault();
+            handleNavigateTab('font-licenses');
+          }}
+        >
+          ใบอนุญาตฟอนต์
+        </a>
+      </footer>
     </div>
   );
 }

@@ -1623,6 +1623,22 @@ table.ranking-table {
   font-style: normal;
   font-display: block;
 }
+/* ชุด custom — Oswald (OFL, Oswald-OFL.txt) ตัดเหลือ 0–9 · Norasi Bold (GPL-2+ with font exception,
+   Norasi-COPYING.txt / NorasiBold-PlateSubset-NOTICE.txt) ตัดย่อด้วย tools/plate_fonts.py */
+@font-face {
+  font-family: 'PlateDigits';
+  src: url('../assets/fonts/Oswald500-PlateDigits.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'PlateNorasi';
+  src: url('../assets/fonts/NorasiBold-PlateSubset.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
 @font-face {
   font-family: 'PlateThaiProvince';
   src: url('../assets/fonts/NotoSansThaiLooped-PlateSubset-wdth80.woff2') format('woff2');
@@ -1668,6 +1684,17 @@ table.ranking-table {
 }
 .plate-image__province {
   font-family: 'PlateThaiProvince', 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
+}
+/* ชุดฟอนต์ custom (featureFlags.ts → PLATE_FONT_STYLE): เลข Oswald 500 · อักษรไทย/จังหวัด Norasi Bold
+   ฟอนต์สำรองเป็น Noto ชุดเดิม — ถ้าโหลดไม่สำเร็จ PlateImage เปลี่ยนเป็นชุด noto ทั้งเลย์เอาต์ (plateFontLoader.ts) */
+.plate-image__text--custom .plate-image__digit {
+  font-family: 'PlateDigits', 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
+  font-weight: 500;
+}
+.plate-image__text--custom .plate-image__letter,
+.plate-image__text--custom .plate-image__province {
+  font-family: 'PlateNorasi', 'PlateThaiProvince', 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
+  font-weight: 700;
 }
 /* แถวใต้ป้าย: "ภาพจำลอง ไม่ใช่ป้ายจริง" + ปุ่มคัดลอก (พื้นที่กด ≥ 44px แต่ดูเป็นปุ่มเล็ก) + สถานะ */
 .plate-figure__caption {
@@ -1782,4 +1809,54 @@ table.ranking-table {
 .ranking-detail-plate {
   --plate-max-width: 240px;
   margin: 8px 0 4px;
+}
+
+/* ---------------------------------------------------------------------
+   ลิงก์ "ใบอนุญาตฟอนต์" ท้ายหน้า + หน้าใบอนุญาตฟอนต์
+   --------------------------------------------------------------------- */
+.app-footer {
+  margin: 32px 0 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 0.85rem;
+}
+.app-footer a {
+  color: var(--ink-soft);
+  display: inline-block;
+  padding: 10px 8px; /* พื้นที่กด ≥ 44px */
+}
+.font-licenses-intro {
+  color: var(--ink-soft);
+}
+.font-license h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+.font-license dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+.font-license dt {
+  color: var(--ink-soft);
+}
+.font-license dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .font-license dl {
+    grid-template-columns: 1fr;
+  }
+  .font-license dd {
+    margin-bottom: 6px;
+  }
+}
+/* ลิงก์ในหน้าใบอนุญาต: สีตามข้อความ + ขีดเส้นใต้ (สีลิงก์เริ่มต้นของเบราว์เซอร์อ่านยากในโหมดมืด) */
+.font-license a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

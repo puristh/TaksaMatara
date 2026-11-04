@@ -1,7 +1,8 @@
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { PlateInput } from '../engine/types';
-import { PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
-import { buildPlateLayout, PLATE_H, PLATE_LAYOUT, PLATE_W } from './plateLayout';
+import { PLATE_FONT_STYLE, PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
+import { buildPlateLayout, PLATE_H, PLATE_LAYOUT, PLATE_W, resolvePlateFontProfile } from './plateLayout';
+import { usePlateFontStatus } from './plateFontLoader';
 import type { PlateTextLine, PlateVariant } from './plateLayout';
 import { browserCopyEnv, copyPlateText, copyStatusMessage } from './plateCopy';
 import type { CopyStatus } from './plateCopy';
@@ -56,22 +57,44 @@ const SKYLINE_BASE_H = 200;
 /** เส้นขอบป้าย — ค่าอยู่ใน PLATE_LAYOUT.frame ที่เดียว (ระยะปลอดภัยของข้อความวัดจากเส้นขอบใน) */
 const F = PLATE_LAYOUT.frame;
 
+/** ทศนิยม 2 ตำแหน่งใน attribute transform */
+function n2(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
 function EmbossedText({ line, anchor }: { line: PlateTextLine; anchor: 'start' | 'middle' }) {
   const k = line.fontSize / 100;
+  const sx = line.scaleX ?? 1;
+  const className = line.role ? `plate-image__${line.role}` : undefined;
   return (
     <>
-      {EMBOSS_LAYERS.map((layer, i) => (
-        <text
-          key={i}
-          x={line.x + layer.dx * k}
-          y={line.y + layer.dy * k}
-          fontSize={line.fontSize}
-          textAnchor={anchor}
-          fill={layer.fill}
-        >
-          {line.text}
-        </text>
-      ))}
+      {EMBOSS_LAYERS.map((layer, i) =>
+        sx === 1 ? (
+          <text
+            key={i}
+            className={className}
+            x={line.x + layer.dx * k}
+            y={line.y + layer.dy * k}
+            fontSize={line.fontSize}
+            textAnchor={anchor}
+            fill={layer.fill}
+          >
+            {line.text}
+          </text>
+        ) : (
+          // บีบแนวนอน: เลื่อนเงา/ไฮไลต์ก่อน scale ทุกชั้นใช้ scaleX เดียวกัน (ตัวนูนยังตรงกัน)
+          <text
+            key={i}
+            className={className}
+            transform={`translate(${n2(line.x + layer.dx * k)} ${n2(line.y + layer.dy * k)}) scale(${sx} 1)`}
+            fontSize={line.fontSize}
+            textAnchor={anchor}
+            fill={layer.fill}
+          >
+            {line.text}
+          </text>
+        ),
+      )}
     </>
   );
 }
@@ -96,6 +119,9 @@ export const PlateImage = memo(function PlateImage({
   const letter1 = thaiLetters[0];
   const letter2 = thaiLetters[1];
   const resolvedProvince = provinceLabel === undefined ? PLATE_IMAGE_DEFAULT_PROVINCE : provinceLabel;
+  // ฟอนต์ custom โหลดไม่สำเร็จ → ใช้ชุด noto ทั้งฟอนต์และตารางเลย์เอาต์ (ไม่ล้นกรอบเพราะคำนวณจากฟอนต์ที่แสดงจริง)
+  const fontStatus = usePlateFontStatus(PLATE_FONT_STYLE === 'custom');
+  const font = resolvePlateFontProfile(PLATE_FONT_STYLE, fontStatus);
   const layout = useMemo(
     () =>
       buildPlateLayout({
@@ -104,8 +130,8 @@ export const PlateImage = memo(function PlateImage({
         tailDigits,
         variant,
         provinceLabel: resolvedProvince,
-      }),
-    [frontDigit, letter1, letter2, tailDigits, variant, resolvedProvince],
+      }, font),
+    [frontDigit, letter1, letter2, tailDigits, variant, resolvedProvince, font],
   );
 
   const textToCopy = copyText ?? layout.plateText;
@@ -205,7 +231,7 @@ export const PlateImage = memo(function PlateImage({
         />
 
         {/* clip ที่ขอบป้าย: ถ้าฟอนต์ป้ายโหลดไม่สำเร็จและฟอนต์สำรองกว้างกว่า ข้อความจะไม่ล้นออกนอกป้าย */}
-        <g className="plate-image__text" clipPath={`url(#${clipId})`}>
+        <g className={`plate-image__text plate-image__text--${layout.fontStyle}`} clipPath={`url(#${clipId})`}>
           {layout.topRuns.map((run, i) => (
             <EmbossedText key={i} line={run} anchor="start" />
           ))}
