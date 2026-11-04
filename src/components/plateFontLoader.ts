@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react';
+import { PLATE_TAIL_MODE } from '../config/featureFlags';
 
 /**
  * ตรวจว่าฟอนต์ชุด custom ของภาพป้ายโหลดสำเร็จหรือไม่ — ถ้าไม่สำเร็จ PlateImage ถอยไปใช้ชุด noto
@@ -7,11 +8,15 @@ import { useEffect, useSyncExternalStore } from 'react';
  */
 export type PlateFontStatus = 'pending' | 'loaded' | 'failed';
 
-/** ฟอนต์ custom ที่ต้องโหลดครบ: [CSS font shorthand, ตัวอย่างข้อความ] — ชื่อตรงกับ @font-face ใน theme.css */
-export const CUSTOM_PLATE_FONT_FACES: ReadonlyArray<readonly [string, string]> = [
-  ['500 40px PlateDigits', '0123456789'],
-  ['700 40px PlateNorasi', 'กขกรุงเทพมหานคร'],
-];
+/** ฟอนต์ custom ที่ต้องโหลดครบ: [CSS font shorthand, ตัวอย่างข้อความ] — ชื่อตรงกับ @font-face ใน theme.css
+ * Norasi: ไฟล์เดิม (tailMode 'fit') หรือไฟล์ตัดหาง ('shortened') อย่างใดอย่างหนึ่ง */
+export function customPlateFontFaces(tailMode: 'fit' | 'shortened' = PLATE_TAIL_MODE): ReadonlyArray<readonly [string, string]> {
+  return [
+    ['500 40px PlateDigits', '0123456789'],
+    [`700 40px ${tailMode === 'shortened' ? 'PlateNorasiShortTail' : 'PlateNorasi'}`, 'กขกรุงเทพมหานคร'],
+  ];
+}
+export const CUSTOM_PLATE_FONT_FACES = customPlateFontFaces();
 
 type FontLoader = Pick<FontFaceSet, 'load'>;
 

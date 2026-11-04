@@ -9,7 +9,7 @@
  * วัดใน DOM — ฟอนต์มี 2 ชุด สลับด้วย PLATE_FONT_STYLE (config/featureFlags.ts):
  *
  * ชุด "custom" (ค่าปัจจุบัน) — วางทีละ glyph ตาราง metric สร้างด้วย tools/plate_fonts.py
- * (plateFontMetrics.generated.ts) ไม่ได้แก้ glyph ในไฟล์ฟอนต์:
+ * (plateFontMetrics.generated.ts) · Norasi มี 2 ไฟล์: เดิม (ไม่แก้ glyph) และตัดหาง ฐ ฎ ฏ ญ ฤ ฦ (PLATE_TAIL_MODE):
  * - ตัวเลข: Oswald 500 (OFL) ช่องว่างหมึกระหว่างเลขที่ติดกัน = ค่าตามธรรมชาติของคู่นั้น (รวม kerning) × 1.4
  * - อักษรไทยบรรทัดหลัก: Norasi Bold (GPL-2+ with font exception) พยัญชนะสูงเท่าเลขหัวแบน baseline เดียวกัน
  *   บีบแนวนอน 0.8 เท่าด้วย transform ใน SVG
@@ -24,12 +24,14 @@
  */
 import type { AuctionNumberInfo, PlateInput } from '../engine/types';
 import { formatPlateText, plateTextParts } from '../engine/plateText';
-import { PLATE_FONT_STYLE, PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
+import { PLATE_FONT_STYLE, PLATE_IMAGE_DEFAULT_PROVINCE, PLATE_TAIL_MODE } from '../config/featureFlags';
 import {
   NORASI_LETTER_METRICS,
   NORASI_PROVINCE_ADVANCE_EM,
   NORASI_PROVINCE_VERTICAL,
   NORASI_PROVINCES_SHAPED,
+  NORASI_SHORT_TAIL_LETTER_METRICS,
+  NORASI_SHORT_TAIL_PROVINCES_SHAPED,
   OSWALD_DIGIT_FLAT_EM,
   OSWALD_DIGIT_METRICS,
   OSWALD_DIGIT_PAIR_GAP_EM,
@@ -60,13 +62,24 @@ const BASE_ASPECT = 2.34;
  */
 export const PLATE_BASE_H = Math.round(PLATE_W / BASE_ASPECT);
 /**
- * ความสูงป้ายเทียบป้ายฐาน (กว้างเท่าเดิม) — ผู้ใช้เทียบกับป้ายจริงแล้วเลือก 1.2 (2.34:1 → ~1.95:1)
- * ลองค่าอื่น (เช่น 1.15, 1.25) ได้ที่ค่านี้ที่เดียว: ระยะจากขอบบนถึงบรรทัดหลัก และจากชื่อจังหวัดถึงขอบล่าง
- * คงระยะจริงเดิม พื้นที่ที่เพิ่มไปอยู่ระหว่างเลขทะเบียนกับชื่อจังหวัด
+ * ความสูงป้ายเทียบป้ายฐาน (กว้างเท่าเดิม) — เลือก 1.05 (2.34:1 → ~2.23:1) คู่กับหางแบบตัดสั้น: ระยะระหว่างบรรทัด
+ * 18.4% ของป้ายฐาน (ป้ายจริง 15.0–19.9%) และตัวเลขทุกป้ายในชุดตรวจได้ขนาดเต็มตามความกว้าง (1.1 = ช่องว่างกว้างเกินป้ายจริง,
+ * 1.0 = ชื่อจังหวัดที่มีสระบนสูงชิดบรรทัดหลัก) — แบบหางเดิม (fit) ต้องใช้ 1.1 ตัวเลขป้ายที่มีหางจึงใกล้ขนาดเต็ม
+ * ลองค่าอื่นได้ที่ค่านี้ที่เดียว: ชื่อจังหวัดคงระยะจริงจากขอบล่าง บรรทัดหลักอยู่เหนือชื่อจังหวัด LINE_GAP_H0 เสมอ
+ * พื้นที่ที่เพิ่ม/ลดจึงไปอยู่ที่ขอบบน — ตั้ง LINE_GAP_H0 คู่กันตามสูตรด้านล่าง (plateAspect.test.ts ตรวจคู่ค่านี้)
  */
-const PLATE_HEIGHT_SCALE = 1.2;
-/** ขนาดชื่อจังหวัดเทียบค่าที่วัดจากภาพป้าย (ทั้งความสูงพยัญชนะและความกว้างสูงสุด) — ผู้ใช้กำหนด 0.8 */
-const PROVINCE_SIZE_SCALE = 0.8;
+const PLATE_HEIGHT_SCALE = 1.05;
+/** ขนาดชื่อจังหวัดเทียบค่าที่วัดจากภาพป้าย (ทั้งความสูงพยัญชนะและความกว้างสูงสุด) — ผู้ใช้กำหนด 0.9
+ * ล็อกไว้: ไม่ย่อเพิ่มเพราะหางอักษร */
+const PROVINCE_SIZE_SCALE = 0.9;
+/**
+ * ระยะระหว่างบรรทัด (สัดส่วนของป้ายฐาน) = จากเส้นฐานบรรทัดหลัก (ขอบล่างตัวเลข) ถึงยอดพยัญชนะของชื่อจังหวัด
+ * ที่ขนาดปกติ — ค่าเดียวกันทุกป้าย ไม่ขึ้นกับหางอักษร — 18.4% ของป้ายฐาน (34.6 หน่วย · ป้ายจริง 15.0–19.9%)
+ * เลือกเป็นค่าที่มากที่สุดที่ป้ายสั้นได้ตัวเลขขนาดเต็มกับพยัญชนะทุกตัวที่ไม่ใช่อักษรหัวสูง (ช ซ ศ ส ฮ หัวสูงกว่าตัวเลขเล็กน้อย
+ * ต้องการเส้นฐานที่ 103.3 หน่วยจากขอบบน = ยอดตัวเลขห่างขอบบน 13.5% ของป้ายฐาน, ป้ายจริง 12%)
+ * ตั้งคู่กับ PLATE_HEIGHT_SCALE: (H − 162.4) ÷ 188 เช่น 1.0 → 0.136, 1.05 → 0.184, 1.1 → 0.237 (H = หน่วย viewBox, ชุด custom)
+ */
+const LINE_GAP_H0 = 0.184;
 /** ขอบด้านในของเส้นขอบใน (หน่วย viewBox) — ระยะจากขอบนอกคงที่ไม่ขึ้นกับความสูงป้าย */
 const FRAME_INNER_EDGE = PLATE_FRAME.innerInset + PLATE_FRAME.innerStroke / 2;
 const SAFE_MARGIN_W = 0.048;
@@ -81,10 +94,14 @@ const PROVINCE_CONSONANT_HEIGHT_H0 = 0.1535;
  * "สบายตา" = เลือกให้อ่านสบาย ไม่ได้มาจากป้ายจริง (ป้ายจริงแน่นกว่าและไม่มีเส้นขอบใน)
  *
  * ค่าแนวตั้งที่วัด/เลือกไว้บนป้ายฐาน (สูง PLATE_BASE_H) แปลงเป็นสัดส่วนของ H ด้วย h() ให้ระยะจริงเท่าเดิม
- * เช่น ระยะปลอดภัยบน 4.5% ของป้ายฐาน = 8.46 หน่วย = 3.74% H ของป้ายสูง 1.2 เท่า — ข้อความในวงเล็บ
+ * เช่น ระยะปลอดภัยบน 4.5% ของป้ายฐาน = 8.46 หน่วย = 4.29% H ของป้ายสูง 1.05 เท่า — ข้อความในวงเล็บ
  * ของแต่ละค่าเป็นสัดส่วนของป้ายฐาน
  */
-export function makePlateLayout(heightScale: number = PLATE_HEIGHT_SCALE, provinceScale: number = PROVINCE_SIZE_SCALE) {
+export function makePlateLayout(
+  heightScale: number = PLATE_HEIGHT_SCALE,
+  provinceScale: number = PROVINCE_SIZE_SCALE,
+  lineGapH0: number = LINE_GAP_H0,
+) {
   const H0 = PLATE_BASE_H;
   const H = Math.round(H0 * heightScale);
   /** ระยะจริง (สัดส่วนของป้ายฐาน) → สัดส่วนของความสูงป้ายนี้ */
@@ -92,6 +109,7 @@ export function makePlateLayout(heightScale: number = PLATE_HEIGHT_SCALE, provin
   return {
     heightScale,
     provinceScale,
+    lineGapH0,
     /** ความสูงป้ายฐาน / ป้ายนี้ (หน่วย viewBox) */
     baseHeight: H0,
     height: H,
@@ -121,8 +139,12 @@ export function makePlateLayout(heightScale: number = PLATE_HEIGHT_SCALE, provin
     minDigitHeightH: h(0.36),
     /** ความสูงพยัญชนะไทย : ความสูงตัวเลข — วัด 13/13 มัธยฐาน 1.00 (ตัวเลข/อักษร 0.89–1.01) */
     letterToDigitHeight: 1.0,
-    /** baseline ของบรรทัดหลัก (ขอบล่างตัวเลข) จากขอบบน — วัด 13/13 มัธยฐาน 53.5% ของป้ายฐาน */
+    /** baseline ของบรรทัดหลัก (ขอบล่างตัวเลข) จากขอบบนบนป้ายจริง — วัด 13/13 มัธยฐาน 53.5% ของป้ายฐาน
+     * ใช้เป็นค่าอ้างอิงของระยะขอบบน (ยอดตัวเลข = 53.5 − 41.5 = 12% ของป้ายฐานจากขอบนอก) — ตำแหน่งจริงของบรรทัดหลัก
+     * ตาม lineGapH (ดู mainBaselineFor) */
     mainBaselineH: h(0.535),
+    /** ระยะระหว่างบรรทัด: เส้นฐานบรรทัดหลัก → ยอดพยัญชนะชื่อจังหวัดขนาดปกติ (LINE_GAP_H0) — ค่าเดียวทุกป้าย */
+    lineGapH: h(lineGapH0),
     /** กึ่งกลางกลุ่มหน้า (เลขหน้า+อักษร) — วัด 9/13 มัธยฐาน 24% W (อีก 4 แผ่นเป็นภาพร้านค้าที่อาจเป็นภาพจัดทำ) */
     leftGroupCenterW: 0.24,
     /** กึ่งกลางกลุ่มเลขท้าย — วัด 10/13 มัธยฐาน 72% W ทุกจำนวนหลัก (1–4) */
@@ -131,11 +153,12 @@ export function makePlateLayout(heightScale: number = PLATE_HEIGHT_SCALE, provin
     minGroupGapW: 0.058,
     /** ยอดหมึกบรรทัดหลักสูงสุด (จากขอบนอก) = ขอบในของเส้นขอบใน + safeMarginTopH */
     minTopMarginH: FRAME_INNER_EDGE / H + h(SAFE_MARGIN_TOP_H0),
-    /** ระยะห่างน้อยสุดระหว่างหางล่างอักษร (ฐ ญ ฎ ฏ ฤ ฦ) กับหมึกบนสุดของบรรทัดจังหวัด (4% ของป้ายฐาน)
-     * — ป้ายจริงวัด 3/13 ได้ 8.0–11.7% แต่หางในฟอนต์ยาวกว่าจริงและเป็นชิ้นแยก — สบายตา/ประมาณการ */
+    /** ระยะห่างน้อยสุดระหว่างปลายหางล่างอักษร (ฐ ญ ฎ ฏ ฤ ฦ) กับหมึกบนสุดของบรรทัดจังหวัด (4% ของป้ายฐาน)
+     * — ป้ายจริงวัด 3/13 ได้ 8.0–11.7% — สบายตา/ประมาณการ · ไม่พอ = ย่อบรรทัดหลัก (เส้นฐานคงที่) */
     descenderClearanceH: h(0.04),
-    /** ระยะห่างน้อยสุดระหว่างขอบล่างบรรทัดหลัก (ไม่มีหาง) กับหมึกบนสุดของบรรทัดจังหวัด (6% ของป้ายฐาน)
-     * — ป้ายจริง 15.0–19.9% (วัด 13/13) — สบายตา/ประมาณการ */
+    /** ระยะห่างน้อยสุดระหว่างขอบล่างบรรทัดหลัก (ไม่มีหาง) กับหมึกบนสุดของบรรทัดจังหวัด (รวมสระบน/วรรณยุกต์)
+     * (6% ของป้ายฐาน) — ป้ายจริง 15.0–19.9% (วัด 13/13) — สบายตา/ประมาณการ · กันไว้สำหรับชื่อจังหวัดที่ผู้ใช้พิมพ์เอง
+     * ที่มีเครื่องหมายบนสูงมาก (ไม่พอ = ยกบรรทัดหลักขึ้น ซึ่งไม่เกิดกับ 77 จังหวัด) */
     minLineGapH: h(0.06),
     province: {
       /** ความสูงพยัญชนะ — วัด 13/13 มัธยฐาน 15.35% ของป้ายฐาน (= 0.37 เท่าความสูงตัวเลข) × provinceScale */
@@ -149,9 +172,6 @@ export function makePlateLayout(heightScale: number = PLATE_HEIGHT_SCALE, provin
       /** ความกว้างสูงสุด — "กรุงเทพมหานคร" วัด 13/13 มัธยฐาน 69.4% W (ช่วง 68–76) × provinceScale
        * ชื่อจังหวัดที่ยาวกว่าถูกย่อให้ไม่เกินค่าเดียวกัน (ตัวอักษรเตี้ยลงแทนการล้นกว้าง) */
       maxWidthW: 0.694 * provinceScale,
-      /** ป้ายที่อักษรมีหาง (ฐ ญ ฎ ฏ ฤ ฦ): ย่อชื่อจังหวัดได้ไม่ต่ำกว่า 85% ของขนาดปกติ เพื่อคืนพื้นที่แนวตั้งให้ตัวเลข
-       * — ย่อเท่าที่จำเป็นเท่านั้น (ป้ายสูง 1.2 เท่าไม่ต้องย่อแล้ว) — สบายตา */
-      descenderShrinkMin: 0.85,
     },
     /** ฟอนต์ชุด custom (เลือกจากแกลเลอรีฟอนต์) — ค่าที่ผู้ใช้กำหนด ไม่ได้มาจากป้ายจริง */
     customFont: {
@@ -260,6 +280,7 @@ const UPPER_MARK = /[ัิ-ื็-๎]/;
 const LOWER_MARK = /[ุ-ฺ]/;
 
 export type PlateFontStyle = 'custom' | 'noto';
+export type PlateTailMode = 'fit' | 'shortened';
 
 /** ชุดฟอนต์ของภาพป้าย: ตาราง metric + กติกาการวางที่ขึ้นกับฟอนต์ (หน่วย em) */
 export interface PlateFontProfile {
@@ -298,9 +319,11 @@ export interface PlateFontProfile {
      * (ฟอนต์จังหวัดต้องเป็นฟอนต์เดียวกับอักษรบรรทัดหลัก) · ไม่มี = ใช้ consonantEm (พฤติกรรมเดิมของชุด noto) */
     consonantTopEm?: number;
   };
-  /** ป้ายที่อักษรมีหาง: ความสูงตัวเลขเป้าหมายที่ยอมย่อชื่อจังหวัด (ไม่ต่ำกว่า descenderShrinkMin) เพื่อให้ได้
-   * 'min' = minDigitHeightH (ชุด noto เดิม) · 'full' = digitHeightH */
-  descenderTarget: 'min' | 'full';
+  /** หางล่างของอักษรบรรทัดหลัก: 'shortened' = ไฟล์ฟอนต์ตัดหาง (featureFlags.ts → PLATE_TAIL_MODE)
+   * · 'fit' = หางตามฟอนต์เดิม — ทั้งสองแบบย่อบรรทัดหลักถ้าปลายหางไม่พ้นชื่อจังหวัด (แบบ shortened ไม่เกิดที่ค่าปัจจุบัน) */
+  tailMode: PlateTailMode;
+  /** ชื่อจังหวัดที่จัดวางจริงแล้ว [advance, ความกว้างหมึก, ยอดหมึก, ความลึกหมึก] (em) — ไม่มี = คำนวณจากตาราง */
+  provinceShaped?: Record<string, readonly [number, number, number, number]>;
 }
 
 /** ชุดเดิม: Noto Sans Thai Looped ทั้งหมด — ค่าทุกตัวเหมือนก่อนมีชุด custom */
@@ -323,7 +346,7 @@ export const NOTO_PLATE_FONT: PlateFontProfile = {
     leadingVowelEm: 0.933,
     tallConsonantEm: 0.788, // ป ฝ ฟ 0.760, ฬ 0.788
   },
-  descenderTarget: 'min',
+  tailMode: 'fit',
 };
 
 const DIGIT_GAPS = Object.values(OSWALD_DIGIT_PAIR_GAP_EM);
@@ -336,8 +359,9 @@ export const OSWALD_MEAN_DIGIT_GAP_EM = DIGIT_GAPS.reduce((a, b) => a + b, 0) / 
  * - ช่องไฟอักษรไทย (และเลขหน้า → อักษร): ค่าเฉลี่ยช่องไฟเลขหลังคูณแล้ว — ช่องว่างหมึกเท่าช่องไฟเลขโดยเฉลี่ย
  *   ให้ทั้งบรรทัดมีจังหวะเดียวกัน (ช่องไฟธรรมชาติของ Norasi ที่บีบ 0.8 แล้วยังกว้างกว่าเลขราว 20%)
  * - พยัญชนะสูงเท่าเลขหัวแบน (1 4 7) baseline เดียวกัน · ความสูงตัวเลขวัดจากยอดเลขหัวมน (overshoot)
- * - ป้ายที่อักษรมีหาง: ยอมย่อชื่อจังหวัด (ไม่ต่ำกว่า 85%) เพื่อให้ตัวเลขใกล้ 41.5% ของป้ายฐานมากที่สุด
- *   (ป้ายสูง 1.2 เท่ามีพื้นที่พอ ไม่ต้องย่อ) — กฎขั้นต่ำ 13px ของชื่อจังหวัดเอาออกแล้ว (ชื่อจังหวัดย่อเหลือ 0.8)
+ * - หางล่าง (ฐ ฎ ฏ ญ ฤ ฦ): หางตามฟอนต์เดิม ลึก 0.40–0.50 เท่าความสูงพยัญชนะ (ป้ายที่มีหางย่อบรรทัดหลัก) —
+ *   CUSTOM_SHORT_TAIL_PLATE_FONT ใช้ไฟล์ตัดหาง (ลึก 0.2 เท่า) แทน เลือกด้วย PLATE_TAIL_MODE
+ * - ชื่อจังหวัดขนาดคงที่ (provinceScale) ไม่ย่อเพราะหาง — กฎขั้นต่ำ 13px ของชื่อจังหวัดเอาออกแล้ว
  */
 export const CUSTOM_PLATE_FONT: PlateFontProfile = {
   style: 'custom',
@@ -351,23 +375,38 @@ export const CUSTOM_PLATE_FONT: PlateFontProfile = {
     (OSWALD_DIGIT_PAIR_GAP_EM[left + right] ?? OSWALD_MEAN_DIGIT_GAP_EM) * PLATE_LAYOUT.customFont.digitSpacing,
   letterGapEm: OSWALD_MEAN_DIGIT_GAP_EM * PLATE_LAYOUT.customFont.digitSpacing,
   province: { advance: NORASI_PROVINCE_ADVANCE_EM, ...NORASI_PROVINCE_VERTICAL },
-  descenderTarget: 'full',
+  tailMode: 'fit',
+  provinceShaped: NORASI_PROVINCES_SHAPED,
+};
+
+/**
+ * ชุด custom แบบตัดหาง: เหมือน CUSTOM_PLATE_FONT ทุกอย่าง ยกเว้นอักษรบรรทัดหลักและชื่อจังหวัดใช้
+ * NorasiBold-PlateSubset-ShortTail.woff2 (หาง ฐ ฎ ฏ ญ ฤ ฦ ลึก 0.2 เท่าความสูงพยัญชนะ — tools/plate_fonts.py)
+ * ตำแหน่งแนวตั้งของชื่อจังหวัดอ้างหมึกล่างลึกสุดของไฟล์เดิม (lowerMarkEm เท่ากัน) จึงอยู่ที่เดียวกันทั้งสองแบบ
+ */
+export const CUSTOM_SHORT_TAIL_PLATE_FONT: PlateFontProfile = {
+  ...CUSTOM_PLATE_FONT,
+  letters: NORASI_SHORT_TAIL_LETTER_METRICS,
+  tailMode: 'shortened',
+  provinceShaped: { ...NORASI_PROVINCES_SHAPED, ...NORASI_SHORT_TAIL_PROVINCES_SHAPED },
 };
 
 export const PLATE_FONT_PROFILES: Record<PlateFontStyle, PlateFontProfile> = {
-  custom: CUSTOM_PLATE_FONT,
+  custom: PLATE_TAIL_MODE === 'shortened' ? CUSTOM_SHORT_TAIL_PLATE_FONT : CUSTOM_PLATE_FONT,
   noto: NOTO_PLATE_FONT,
 };
 
 /** ชุดฟอนต์ที่ตั้งไว้ใน featureFlags.ts (PlateImage อาจถอยไปชุด noto เองถ้าฟอนต์ custom โหลดไม่สำเร็จ) */
 export const PLATE_FONT_PROFILE: PlateFontProfile = PLATE_FONT_PROFILES[PLATE_FONT_STYLE];
 
-/** ชุดฟอนต์ที่ใช้จริง: ตั้งเป็น noto หรือฟอนต์ custom โหลดไม่สำเร็จ → noto */
+/** ชุดฟอนต์ที่ใช้จริง: ตั้งเป็น noto หรือฟอนต์ custom โหลดไม่สำเร็จ → noto · custom เลือกแบบหางตาม tailMode */
 export function resolvePlateFontProfile(
   style: PlateFontStyle,
   customFontStatus: 'pending' | 'loaded' | 'failed',
+  tailMode: PlateTailMode = PLATE_TAIL_MODE,
 ): PlateFontProfile {
-  return style === 'noto' || customFontStatus === 'failed' ? NOTO_PLATE_FONT : CUSTOM_PLATE_FONT;
+  if (style === 'noto' || customFontStatus === 'failed') return NOTO_PLATE_FONT;
+  return tailMode === 'shortened' ? CUSTOM_SHORT_TAIL_PLATE_FONT : CUSTOM_PLATE_FONT;
 }
 
 function digitMetric(ch: string, font: PlateFontProfile): GlyphMetric {
@@ -468,13 +507,27 @@ export function provinceBaselineH(font: PlateFontProfile = PLATE_FONT_PROFILE, L
 }
 
 /**
+ * เส้นฐานบรรทัดหลัก (หน่วย viewBox) เมื่อมีบรรทัดจังหวัด = ยอดพยัญชนะของชื่อจังหวัดขนาดปกติ − lineGapH
+ * ค่าเดียวทุกป้ายและทุกชื่อจังหวัด (ชื่อยาวที่ถูกย่อตามความกว้าง/ชื่อที่ไม่มีสระล่าง อยู่ต่ำกว่าเล็กน้อย ≤ ~2 หน่วย
+ * เพราะยึดหมึกล่างสุดของแต่ละชื่อ — ระยะถึงบรรทัดหลักจึงไม่แคบกว่า lineGapH)
+ * ยอดพยัญชนะขนาดปกติ: ชื่อที่หมึกลึกถึง lowerMarkEm ที่ขนาด consonantHeightH ชิดระยะปลอดภัยล่างพอดี
+ */
+export function mainBaselineFor(font: PlateFontProfile = PLATE_FONT_PROFILE, L: PlateLayoutConfig = PLATE_LAYOUT): number {
+  const H = L.height;
+  const consonantH = L.province.consonantHeightH * H;
+  const safeBottom = H - FRAME_INNER_EDGE - L.safeMarginBottomH * H;
+  const consonantTop = safeBottom - (font.province.lowerMarkEm / font.province.consonantEm) * consonantH - consonantH;
+  return consonantTop - L.lineGapH * H;
+}
+
+/**
  * หมึกล่างลึกสุดของชื่อจังหวัด (em, ค่าบวก, ไม่เกิน province.lowerMarkEm)
- * - custom: 77 จังหวัดใช้ผลจัดวางจริง (HarfBuzz, tools/plate_fonts.py) ชื่ออื่นคำนวณจากตาราง
+ * - custom: 77 จังหวัดใช้ผลจัดวางจริง (provinceShaped: HarfBuzz, tools/plate_fonts.py) ชื่ออื่นคำนวณจากตาราง
  * - สระล่าง = lowerMarkEm, พยัญชนะ = yMin ในตาราง letters, ตัวที่ไม่รู้จัก = lowerMarkEm (เผื่อไว้)
  */
 export function provinceDescentEm(text: string, font: PlateFontProfile = PLATE_FONT_PROFILE): number {
   const LM = font.province.lowerMarkEm;
-  const shaped = font.style === 'custom' ? NORASI_PROVINCES_SHAPED[text] : undefined;
+  const shaped = font.provinceShaped?.[text];
   if (shaped) return Math.min(shaped[3], LM);
   let d = 0;
   for (const ch of text) {
@@ -575,6 +628,8 @@ export interface PlateLayout {
   ariaLabel: string;
   /** ชุดฟอนต์ที่ใช้คำนวณ — PlateImage เลือก font-family ตามนี้ */
   fontStyle: PlateFontStyle;
+  /** แบบหางของอักษร — 'shortened' = PlateImage ใช้ไฟล์ Norasi ตัดหาง */
+  tailMode: PlateTailMode;
   /** บรรทัดบน — noto: แยกเป็นช่วง (เลขหน้า / อักษร / เลขท้าย) · custom: ทีละ glyph · ทุกช่วงใช้ text-anchor="start" */
   topRuns: PlateTextLine[];
   /** ขอบหมึกของกลุ่มหน้าและกลุ่มเลขท้าย (หน่วย viewBox) — ใช้ตรวจ/ทดสอบ */
@@ -591,7 +646,7 @@ export interface PlateLayout {
   mainInkBottom: number;
   /** text-anchor="middle" */
   provinceLine: PlateTextLine | null;
-  /** ยอดพยัญชนะของบรรทัดจังหวัด (null ถ้าไม่มีบรรทัดนี้) */
+  /** หมึกบนสุดของบรรทัดจังหวัด รวมสระบน/วรรณยุกต์ (null ถ้าไม่มีบรรทัดนี้) */
   provinceTop: number | null;
 }
 
@@ -648,41 +703,30 @@ export function buildPlateLayout(
     let pSize = Math.min(byHeight, byWidth);
     // ย่อชื่อจังหวัด (provinceScale) โดยให้หมึกล่างสุดของชื่อนี้ (รวมสระล่าง) อยู่ที่เดิม = ระยะจริงจากขอบล่างเท่าเดิม
     // provinceScale = 1 ได้ baseline เดิมทุกประการ
-    let pBaseline =
+    const pBaseline =
       provinceBaselineH(font, L) * H + provinceDescentEm(provinceLabel, font) * pSize * (1 / L.provinceScale - 1);
     const ascEm = provinceAscentEm(provinceLabel, font);
-    if (descEm > 0) {
-      // อักษรมีหาง: ย่อจังหวัดเท่าที่จำเป็นให้ตัวเลขได้ขนาดเป้าหมาย (ไม่เกินที่ความกว้างอนุญาต) แล้ววาง baseline
-      // ให้หมึกล่างที่ลึกที่สุดชิดระยะปลอดภัยล่างตามขนาดใหม่
-      const safeBottom = H - FRAME_INNER_EDGE - L.safeMarginBottomH * H;
-      const targetH = font.descenderTarget === 'full' ? L.digitHeightH : L.minDigitHeightH;
-      const target = Math.min(size, (targetH * H) / CAP);
-      const needTop = minTop + target * (topEm + descEm) + L.descenderClearanceH * H;
-      const fit = (safeBottom - needTop) / (P.lowerMarkEm + ascEm);
-      const shrunk = Math.min(pSize, Math.max(fit, pSize * L.province.descenderShrinkMin));
-      if (shrunk < pSize) {
-        pSize = shrunk;
-        pBaseline = safeBottom - P.lowerMarkEm * pSize;
-      }
-    }
     provinceLine = { text: provinceLabel, x: W / 2, y: round2(pBaseline), fontSize: round2(pSize) };
     provinceTop = pBaseline - ascEm * pSize;
   }
 
-  // แนวตั้ง: baseline ตามค่าวัด — ยอดหมึก (รวมอักษรหัวสูง ป ฝ ฟ ฬ) ต้องไม่ล้ำระยะปลอดภัยบน และขอบล่าง
-  // (รวมหาง ฐ ญ ฎ ฏ ฤ ฦ) ต้องห่างหมึกบนสุดของบรรทัดจังหวัด — ถ้าไม่พอ ยกบรรทัดขึ้นถึงระยะปลอดภัยบน แล้วจึงย่อ
-  const limit =
-    provinceTop !== null
-      ? provinceTop - (descEm > 0 ? L.descenderClearanceH : L.minLineGapH) * H
-      : H - minTop; // ไม่มีบรรทัดจังหวัด: ระยะปลอดภัยล่างเท่าด้านบน (ประมาณการ)
-  size = Math.min(size, (limit - minTop) / (topEm + descEm));
-  let baseline =
-    provinceTop !== null
-      ? L.mainBaselineH * H
-      : // ไม่มีบรรทัดจังหวัด: จัดตัวเลขกึ่งกลางแนวตั้ง (ประมาณการ — ไม่มีภาพป้ายจริงกรณีนี้)
-        H / 2 + (CAP * size) / 2;
-  baseline = Math.min(baseline, limit - descEm * size);
-  baseline = Math.max(baseline, minTop + topEm * size);
+  // แนวตั้ง: มีบรรทัดจังหวัด = เส้นฐานคงที่ (mainBaselineFor: ยอดพยัญชนะจังหวัด − lineGapH) ไม่ขึ้นกับหาง/อักษรหัวสูง
+  // แล้วย่อทั้งบรรทัดหลัก (ตัวเลขและอักษรอัตราเดียวกัน เส้นฐานไม่ขยับ) เมื่อ
+  //   - ยอดหมึก (รวมอักษรหัวสูง ป ฝ ฟ ฬ) ล้ำระยะปลอดภัยบน
+  //   - ปลายหาง (ฐ ฎ ฏ ญ ฤ ฦ) ห่างหมึกบนสุดของชื่อจังหวัด (รวมสระบน/วรรณยุกต์) น้อยกว่า descenderClearanceH
+  let baseline: number;
+  if (provinceTop !== null) {
+    baseline = Math.min(mainBaselineFor(font, L), provinceTop - L.minLineGapH * H);
+    size = Math.min(size, (baseline - minTop) / topEm);
+    if (descEm > 0) size = Math.min(size, (provinceTop - L.descenderClearanceH * H - baseline) / descEm);
+  } else {
+    // ไม่มีบรรทัดจังหวัด: จัดตัวเลขกึ่งกลางแนวตั้ง ระยะปลอดภัยล่างเท่าด้านบน (ประมาณการ — ไม่มีภาพป้ายจริงกรณีนี้)
+    const limit = H - minTop;
+    size = Math.min(size, (limit - minTop) / (topEm + descEm));
+    baseline = H / 2 + (CAP * size) / 2;
+    baseline = Math.min(baseline, limit - descEm * size);
+    baseline = Math.max(baseline, minTop + topEm * size);
+  }
 
   // แนวนอน: กลุ่มหน้าและกลุ่มท้ายอยู่กึ่งกลางโซนของตัวเอง (ตามค่าวัด) แล้วดันเข้าในกรอบ/ถ่างให้ห่าง
   // อย่างน้อย minGap — ย่อขนาดไว้แล้วข้างบน จึงจัดได้เสมอ
@@ -718,6 +762,7 @@ export function buildPlateLayout(
     provinceLabel,
     ariaLabel: buildPlateAriaLabel(plateText, provinceLabel, input.variant),
     fontStyle: font.style,
+    tailMode: font.tailMode,
     topRuns,
     frontGroupInk: { x0: round2(fx0), x1: round2(fx0 + frontW) },
     tailGroupInk: { x0: round2(tx0), x1: round2(tx1) },

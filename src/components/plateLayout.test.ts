@@ -3,6 +3,7 @@ import {
   buildPlateAriaLabel,
   buildPlateLayout,
   CUSTOM_PLATE_FONT,
+  CUSTOM_SHORT_TAIL_PLATE_FONT,
   inkWidthEm,
   NOTO_PLATE_FONT,
   makePlateLayout,
@@ -109,7 +110,8 @@ const EPS = 0.05;
  * ค่าที่เดิมเขียนตายตัวตามฟอนต์ Noto (DIGIT_CAP_EM = 0.724, LETTER_FONT_RATIO, ฐานจังหวัด 0.575 em,
  * L.province.baselineH) เปลี่ยนเป็นค่าของชุดฟอนต์ที่กำลังทดสอบ — ชุด noto ได้ค่าเดิมทุกตัว
  */
-const FONTS = [NOTO_PLATE_FONT, CUSTOM_PLATE_FONT];
+// เพิ่มชุด custom แบบตัดหาง (ค่าเริ่มต้น) — กติกาเดียวกันต้องผ่านทุกชุด
+const FONTS = [NOTO_PLATE_FONT, CUSTOM_PLATE_FONT, CUSTOM_SHORT_TAIL_PLATE_FONT];
 
 /** ทุกกรณีความยาว: เลขหน้า null/0/ตัวเลข × อักษรแคบ/กว้าง/มีหาง × เลขท้าย 1–4 หลัก × มี/ไม่มีจังหวัด */
 const FRONTS = [null, 0, 8] as const;
@@ -125,7 +127,7 @@ const TAILS = ['1', '11', '222', '9999', '0000', '1234'];
 const PROVINCES = ['กรุงเทพมหานคร', 'พระนครศรีอยุธยา', null] as const;
 
 for (const font of FONTS)
-describe(`[${font.style}] buildPlateLayout — invariants for every length`, () => {
+describe(`[${font.style}${font.tailMode === "shortened" ? "/short-tail" : ""}] buildPlateLayout — invariants for every length`, () => {
   const DIGIT_CAP_EM = font.digitCapEm;
   for (const fd of FRONTS)
     for (const letters of LETTER_SETS)
@@ -164,7 +166,7 @@ describe(`[${font.style}] buildPlateLayout — invariants for every length`, () 
 });
 
 for (const font of FONTS)
-describe(`[${font.style}] buildPlateLayout — measured rules from real plates`, () => {
+describe(`[${font.style}${font.tailMode === "shortened" ? "/short-tail" : ""}] buildPlateLayout — measured rules from real plates`, () => {
   const DIGIT_CAP_EM = font.digitCapEm;
   const layout = (
     frontDigit: number | null,
@@ -172,12 +174,12 @@ describe(`[${font.style}] buildPlateLayout — measured rules from real plates`,
     tailDigits: string,
     extra: Partial<PlateLayoutInput> = {},
   ) => layoutWith(frontDigit, letters, tailDigits, extra, font);
-  // เดิม: W / H ≈ 2.34 — ป้ายสูงขึ้น heightScale (1.2) เท่าตามที่ผู้ใช้เทียบกับป้ายจริง ป้ายฐานยังเป็น 2.34
-  it('aspect ratio: base plate ≈ 2.34 (measured median), drawn plate is heightScale (1.2×) taller → ≈ 1.95', () => {
+  // เดิม: W / H ≈ 2.34 → (งานก่อน) ป้ายสูง 1.2 เท่า ≈ 1.95 → ตอนนี้ 1.05 เท่า ≈ 2.23 (ระยะระหว่างบรรทัดคงที่ หางไม่กำหนดความสูงแล้ว)
+  it('aspect ratio: base plate ≈ 2.34 (measured median), drawn plate is heightScale (1.05×) taller → ≈ 2.23', () => {
     expect(W / PLATE_BASE_H).toBeCloseTo(2.34, 1);
-    expect(L.heightScale).toBe(1.2);
-    expect(H).toBe(Math.round(PLATE_BASE_H * 1.2));
-    expect(W / H).toBeCloseTo(1.95, 1);
+    expect(L.heightScale).toBe(1.05);
+    expect(H).toBe(Math.round(PLATE_BASE_H * 1.05));
+    expect(W / H).toBeCloseTo(2.23, 1);
   });
 
   it('digit height is the measured 41.5% H whenever it fits — same for 1, 2, 3 and 4 tail digits', () => {
@@ -258,16 +260,22 @@ describe(`[${font.style}] buildPlateLayout — measured rules from real plates`,
     expect(consonantH / L.province.consonantHeightH).toBeGreaterThan(0.9);
   });
 
-  // เดิม: tailed.mainBaseline < plain.mainBaseline ที่ป้ายสูงเดิม — ป้ายสูง 1.2 เท่ามีที่พอ หางไม่ต้องยกบรรทัดแล้ว
-  // จึงตรวจกฎการยกที่ป้ายสูงเดิม (makePlateLayout(1, 1)) และตรวจที่ป้ายใหม่ว่าไม่ชนและไม่ต้องยก
-  it('descender letters (ฐ) lift the main line rather than colliding with the province (base-height plate); the 1.2× plate needs no lift', () => {
-    const base = makePlateLayout(1, 1);
+  // เดิม: อักษรมีหางยกบรรทัดหลักขึ้น (ป้ายสูงเดิม) — ผู้ใช้สั่งให้ระยะระหว่างบรรทัดคงที่ทุกป้าย: เส้นฐานไม่ขยับ
+  // ป้ายที่หางไม่พ้นชื่อจังหวัดย่อบรรทัดหลักแทน (ทดสอบที่ป้ายสูงเดิมซึ่งหางไม่พอแน่นอน)
+  it('descender letters (ฐ) keep the main baseline and shrink the main line instead of colliding with the province', () => {
+    const base = makePlateLayout(1, 0.9, 0.136);
     const at = (letters: [string, string], cfg = L) =>
       buildPlateLayout({ frontDigit: null, thaiLetters: letters, tailDigits: '18', variant: 'standard', provinceLabel: 'กรุงเทพมหานคร' }, font, cfg);
-    expect(at(['ฐ', 'ร'], base).mainBaseline).toBeLessThan(at(['ก', 'ร'], base).mainBaseline);
-    const tailed = at(['ฐ', 'ร']);
-    expect(tailed.mainBaseline).toBe(at(['ก', 'ร']).mainBaseline);
-    expect(tailed.mainInkBottom).toBeLessThanOrEqual(tailed.provinceTop! - L.descenderClearanceH * H + EPS);
+    for (const cfg of [base, L]) {
+      const tailed = at(['ฐ', 'ร'], cfg);
+      const plain = at(['ก', 'ร'], cfg);
+      expect(tailed.mainBaseline).toBe(plain.mainBaseline);
+      expect(tailed.provinceLine).toEqual(plain.provinceLine);
+      expect(tailed.mainInkBottom).toBeLessThanOrEqual(tailed.provinceTop! - cfg.descenderClearanceH * cfg.height + EPS);
+    }
+    // หางเดิมไม่พอที่ป้ายสูงเดิม → ย่อ · หางตัดสั้นพอ → ขนาดเท่าป้ายไม่มีหาง
+    if (font.tailMode === 'fit') expect(at(['ฐ', 'ร'], base).digitFontSize).toBeLessThan(at(['ก', 'ร'], base).digitFontSize);
+    else expect(at(['ฐ', 'ร'], base).digitFontSize).toBe(at(['ก', 'ร'], base).digitFontSize);
   });
 
   it('combining marks (สระบน/ล่าง) take no width', () => {

@@ -1,14 +1,27 @@
 NorasiBold-PlateSubset.woff2 — modified version of Norasi Bold
 
-Source:   tlwg/fonts-tlwg v0.7.4 (release ttf-tlwg-0.7.4.tar.xz) (https://github.com/tlwg/fonts-tlwg), file Norasi-Bold.ttf
+Source:   tlwg/fonts-tlwg v0.7.4 (https://github.com/tlwg/fonts-tlwg), file Norasi-Bold.ttf
           font version: Version 006.005
           sha256 of the original file: cdbce4c80e378f04d863490bef3e31cd611eef96b687aa9976bc2844d112f8c8
 License:  GNU General Public License version 2 or later, with the font exception
           (see Norasi-COPYING.txt for copyright and the exception, Norasi-GPL-2.txt for the GPL text)
+          an unmodified copy of that file is kept in third_party/norasi/ of this repository
 Changes:  subset to Thai consonants, vowels, tone marks, ็ ์ ํ ๆ ฯ, space and every character used by
           the 77 Thai province names; converted to WOFF2. No glyph outline was changed.
           GSUB/GPOS tables kept. Produced by tools/plate_fonts.py in this repository
           (the corresponding source is the upstream source above plus that script).
+
+NorasiBold-PlateSubset-ShortTail.woff2 — modified version of Norasi Bold (same source and license as above)
+
+Changes:  the same subset and WOFF2 conversion as above, plus shortened descenders (tails below the baseline).
+          Modified glyphs: ฐ (U+0E10) depth 287 -> 115 units (k = 0.4014); ฎ (U+0E0E) depth 233 -> 115 units (k = 0.4944); ฏ (U+0E0F) depth 234 -> 115 units (k = 0.4923); ญ (U+0E0D) depth 283 -> 115 units (k = 0.4071); ฤ (U+0E24) depth 231 -> 115 units (k = 0.4987); ฦ (U+0E26) depth 231 -> 115 units (k = 0.4987)
+          Method: every outline point with y < 0 (below the baseline) of those glyphs is moved to y * k, so the
+          tail depth becomes 0.2 x the consonant height (height of the glyph uni0E01, 576 units).
+          Points on or above the baseline, advance widths and all other glyphs are unchanged. TrueType
+          hinting instructions of the modified glyphs were removed. The version string (name ID 5) has
+          "; plate subset, shortened descenders" appended. Not changed: ฑ (U+0E11) and ฒ (U+0E12), which
+          have no tail below the baseline in Norasi Bold. Function shorten_tails() in tools/plate_fonts.py.
+          Date of change: 2026-11-04.
 Exception: the font exception of the original is extended to this modified version:
           if you create a document which uses this font, and embed this font or unaltered portions
           of this font into the document, this font does not by itself cause the resulting document

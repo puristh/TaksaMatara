@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPlateLayout,
   CUSTOM_PLATE_FONT,
+  CUSTOM_SHORT_TAIL_PLATE_FONT,
   inkWidthEm,
   NOTO_PLATE_FONT,
   PLATE_BASE_H,
@@ -34,7 +35,8 @@ function provinceLowerMarkEm(font: PlateFontProfile, text: string): number {
   if (font.style === 'noto') return 0.327;
   return NORASI_PROVINCES_SHAPED[text]?.[3] ?? NORASI_PROVINCE_VERTICAL.lowerMarkEm;
 }
-const FONTS = [NOTO_PLATE_FONT, CUSTOM_PLATE_FONT];
+// เพิ่มชุด custom แบบตัดหาง (ค่าเริ่มต้น) — กติกาเดียวกันต้องผ่านทุกชุด
+const FONTS = [NOTO_PLATE_FONT, CUSTOM_PLATE_FONT, CUSTOM_SHORT_TAIL_PLATE_FONT];
 const EPS = 0.05;
 
 type Case = [front: number | null, l1: string, l2: string, tail: string, province?: string];
@@ -95,7 +97,7 @@ function checkInside(c: Case, variant: PlateVariant, font: PlateFontProfile, mar
 }
 
 for (const font of FONTS)
-describe(`[${font.style}] safe margin from the inner frame line`, () => {
+describe(`[${font.style}${font.tailMode === "shortened" ? "/short-tail" : ""}] safe margin from the inner frame line`, () => {
   // เดิม: safeMarginTopH/BottomH อยู่ในช่วง 4–5% H — ป้ายสูงขึ้น 1.2 เท่าโดยคงระยะจริง (4.5% ของป้ายฐาน = 8.46 หน่วย)
   // จึงตรวจช่วง 4–5% ของความสูงป้ายฐาน (PLATE_BASE_H) แทน ซึ่งเท่ากับ 3.74% ของความสูงป้ายใหม่
   it('safe margins are within the requested ranges (≥ 4% W, 4–5% of the base plate height) and measured from the inner line', () => {

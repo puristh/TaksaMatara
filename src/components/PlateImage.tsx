@@ -237,7 +237,12 @@ export const PlateImage = memo(function PlateImage({
         />
 
         {/* clip ที่ขอบป้าย: ถ้าฟอนต์ป้ายโหลดไม่สำเร็จและฟอนต์สำรองกว้างกว่า ข้อความจะไม่ล้นออกนอกป้าย */}
-        <g className={`plate-image__text plate-image__text--${layout.fontStyle}`} clipPath={`url(#${clipId})`}>
+        <g
+          className={`plate-image__text plate-image__text--${layout.fontStyle}${
+            layout.fontStyle === 'custom' && layout.tailMode === 'shortened' ? ' plate-image__text--short-tail' : ''
+          }`}
+          clipPath={`url(#${clipId})`}
+        >
           {layout.topRuns.map((run, i) => (
             <EmbossedText key={i} line={run} anchor="start" />
           ))}

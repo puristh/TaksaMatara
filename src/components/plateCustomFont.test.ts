@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPlateLayout,
   CUSTOM_PLATE_FONT,
+  CUSTOM_SHORT_TAIL_PLATE_FONT,
+  mainBaselineFor,
   makePlateLayout,
   NOTO_PLATE_FONT,
   OSWALD_MEAN_DIGIT_GAP_EM,
@@ -44,7 +46,9 @@ const EPS = 0.05;
 const CONSONANTS = [...'กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรฤลฦวศษสหฬอฮ'];
 const COMBINING = /[ัิ-ฺ็-๎]/;
 
-function lay(front: number | null, l1: string, l2: string, tail: string, province = 'กรุงเทพมหานคร', font = CUSTOM_PLATE_FONT, cfg = L) {
+// เดิม: font = CUSTOM_PLATE_FONT — ชุด custom ที่ใช้จริงตอนนี้เป็นแบบตัดหาง (PLATE_TAIL_MODE = 'shortened') จึงตรวจชุดที่ใช้จริง
+// (สองชุดต่างกันเฉพาะหาง ฐ ฎ ฏ ญ ฤ ฦ · แบบหางเดิมตรวจใน plateAspect.test.ts)
+function lay(front: number | null, l1: string, l2: string, tail: string, province = 'กรุงเทพมหานคร', font = PLATE_FONT_PROFILE, cfg = L) {
   return buildPlateLayout({ frontDigit: front, thaiLetters: [l1, l2], tailDigits: tail, variant: 'standard', provinceLabel: province }, font, cfg);
 }
 /** ชื่อจังหวัดที่ต่ำกว่าค่านี้ (px ที่ป้ายกว้าง 260px = #single ที่จอ 390px) ต้องแจ้งในรายงาน — ผู้ใช้กำหนด ~10.5px */
@@ -137,17 +141,21 @@ describe('ชุดฟอนต์ custom — กติกาที่เลื�
 });
 
 describe('สวิตช์ย้อนกลับ (PLATE_FONT_STYLE) และ fallback', () => {
+  // เดิม: PLATE_FONT_PROFILE = CUSTOM_PLATE_FONT — ค่าเริ่มต้นของแบบหางเป็น 'shortened' (ชุด custom ตัดหาง)
   it('ค่าที่ตั้งไว้คือ custom และมีทั้งสองชุดให้สลับ', () => {
     expect(PLATE_FONT_STYLE).toBe('custom');
-    expect(PLATE_FONT_PROFILE).toBe(CUSTOM_PLATE_FONT);
+    expect(PLATE_FONT_PROFILE).toBe(CUSTOM_SHORT_TAIL_PLATE_FONT);
     expect(PLATE_FONT_PROFILES.noto).toBe(NOTO_PLATE_FONT);
   });
-  // เดิม: เทียบที่ป้ายปัจจุบัน — ป้ายสูง 1.2 เท่าเปลี่ยนเลย์เอาต์โดยตั้งใจ จึงเทียบที่ป้ายสูงเดิม (heightScale 1, จังหวัด 1)
-  // ซึ่งต้องได้ค่าเดิมทุกตัว = การแปลงกฎ % H เป็นระยะจริงไม่เปลี่ยนผลของป้ายเดิม
-  it('ชุด noto ที่ป้ายสูงเดิม (makePlateLayout(1, 1)) ให้ผลเลย์เอาต์เหมือนโค้ดก่อนมีชุด custom ทุกค่า (snapshot จาก commit cbdf8a2)', () => {
-    for (const s of OLD_NOTO_SNAPSHOT) {
+  // เดิม: เทียบทั้ง 4 ป้ายที่ makePlateLayout(1, 1) — โมเดลใหม่เส้นฐานคงที่ (ไม่ยกบรรทัดเพราะหาง/อักษรหัวสูง ไม่ย่อจังหวัด
+  // เพราะหาง) ตามที่ผู้ใช้สั่ง จึงเทียบเฉพาะป้ายที่เดิมใช้เส้นฐานตามค่าวัด (9กบ 9999) ที่ป้ายสูงเดิมและเส้นฐานเดิม (53.5%)
+  // ส่วน ฐร 18 / 0ญณ 4721 (เดิมยกบรรทัดเพราะหาง) และ 1ปฬ 12 (เดิมเลื่อนเส้นฐานเพราะอักษรหัวสูง) เปลี่ยนโดยตั้งใจ
+  it('ชุด noto ที่ป้ายสูงเดิม + เส้นฐานเดิม ให้ผลเหมือนโค้ดก่อนมีชุด custom (snapshot จาก commit cbdf8a2) กับป้ายที่ไม่มีหาง/อักษรหัวสูง', () => {
+    const cfg0 = makePlateLayout(1, 1, 0);
+    const cfg = makePlateLayout(1, 1, (mainBaselineFor(NOTO_PLATE_FONT, cfg0) - 0.535 * PLATE_BASE_H) / PLATE_BASE_H);
+    for (const s of OLD_NOTO_SNAPSHOT.slice(0, 1)) {
       const [f, [a, b], t, p] = s.input as [number | null, [string, string], string, string];
-      const l: PlateLayout = lay(f, a, b, t, p, NOTO_PLATE_FONT, makePlateLayout(1, 1));
+      const l: PlateLayout = lay(f, a, b, t, p, NOTO_PLATE_FONT, cfg);
       expect(l.topRuns.map(({ text, x, y, fontSize }) => ({ text, x, y, fontSize }))).toEqual(s.topRuns);
       expect(l.provinceLine).toEqual(s.provinceLine);
       expect([l.mainInkTop, l.mainInkBottom, l.provinceTop]).toEqual([s.mainInkTop, s.mainInkBottom, s.provinceTop]);
@@ -157,8 +165,10 @@ describe('สวิตช์ย้อนกลับ (PLATE_FONT_STYLE) แล�
     expect(resolvePlateFontProfile('noto', 'loaded')).toBe(NOTO_PLATE_FONT);
     expect(resolvePlateFontProfile('noto', 'failed')).toBe(NOTO_PLATE_FONT);
     expect(resolvePlateFontProfile('custom', 'failed')).toBe(NOTO_PLATE_FONT);
-    expect(resolvePlateFontProfile('custom', 'pending')).toBe(CUSTOM_PLATE_FONT);
-    expect(resolvePlateFontProfile('custom', 'loaded')).toBe(CUSTOM_PLATE_FONT);
+    // เดิม: → CUSTOM_PLATE_FONT — ค่าเริ่มต้นของแบบหางเป็น 'shortened'
+    expect(resolvePlateFontProfile('custom', 'pending')).toBe(CUSTOM_SHORT_TAIL_PLATE_FONT);
+    expect(resolvePlateFontProfile('custom', 'loaded')).toBe(CUSTOM_SHORT_TAIL_PLATE_FONT);
+    expect(resolvePlateFontProfile('custom', 'loaded', 'fit')).toBe(CUSTOM_PLATE_FONT);
   });
   it('ตรวจการโหลดฟอนต์: error / ไม่พบฟอนต์ / สถานะ error → failed · ครบ → loaded', async () => {
     const face = (status: FontFaceLoadStatus) => ({ status }) as FontFace;
@@ -205,7 +215,9 @@ describe('ใบอนุญาตฟอนต์', () => {
   const tools = import.meta.glob('../../tools/plate_fonts.py', { query: '?raw', import: 'default', eager: true });
   it('ไฟล์ฟอนต์ทุกไฟล์ที่ theme.css โหลดมีไฟล์ใบอนุญาตอยู่คู่กัน', () => {
     const fonts = [...themeCss.matchAll(/url\('\.\.\/assets\/fonts\/([^']+\.woff2)'\)/g)].map((m) => m[1]);
+    // เดิม: 4 ไฟล์ — เพิ่มไฟล์ Norasi ตัดหาง (แบบ B)
     expect(fonts.sort()).toEqual([
+      'NorasiBold-PlateSubset-ShortTail.woff2',
       'NorasiBold-PlateSubset.woff2',
       'NotoSansThaiLooped-PlateSubset-wdth70.woff2',
       'NotoSansThaiLooped-PlateSubset-wdth80.woff2',
@@ -230,6 +242,10 @@ describe('ใบอนุญาตฟอนต์', () => {
     const notice = read('NorasiBold-PlateSubset-NOTICE.txt');
     expect(notice).toContain('https://github.com/tlwg/fonts-tlwg');
     expect(notice).toContain('tools/plate_fonts.py');
+    // ไฟล์ตัดหาง: รายการ glyph ที่แก้และวิธีแก้ (GPL ข้อ 2a) + ต้นฉบับที่ไม่ได้แก้อยู่ใน third_party/norasi/
+    expect(notice).toContain('NorasiBold-PlateSubset-ShortTail.woff2');
+    for (const cp of ['U+0E10', 'U+0E0E', 'U+0E0F', 'U+0E0D', 'U+0E24', 'U+0E26']) expect(notice).toContain(cp);
+    expect(notice).toContain('third_party/norasi/');
     expect(Object.keys(tools)).toEqual(['../../tools/plate_fonts.py']);
   });
   it('หน้า "ใบอนุญาตฟอนต์" ลิสต์ Noto, Oswald, Norasi พร้อมใบอนุญาตและลิงก์ต้นฉบับ และมีลิงก์ท้ายทุกหน้า', () => {

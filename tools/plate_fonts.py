@@ -9,8 +9,12 @@
   - อักษรไทยบรรทัดหลัก + ชื่อจังหวัด: Norasi Bold — GPL-2+ with font exception
       ต้นทาง https://github.com/tlwg/fonts-tlwg (release ttf-tlwg-<ver>.tar.xz → Norasi-Bold.ttf)
       ตัดย่อเหลือพยัญชนะ สระ วรรณยุกต์ ์ ๆ ฯ และทุกตัวที่ชื่อจังหวัด 77 จังหวัดใช้ (src/data/thaiProvinces.ts)
-  การตัดย่อไม่แก้รูปร่าง glyph ใดๆ (ตัด glyph ที่ไม่ใช้ออก + แปลงเป็น woff2 เท่านั้น)
-  ตาราง GSUB/GPOS (การวางสระ/วรรณยุกต์) เก็บไว้ทั้งหมด
+      ไฟล์ต้นฉบับที่ไม่ได้แก้อยู่ใน third_party/norasi/ (ค่าเริ่มต้นของ --norasi / --tlwg-src)
+  มี Norasi 2 ไฟล์ (featureFlags.ts → PLATE_TAIL_MODE):
+  - NorasiBold-PlateSubset.woff2: ตัดย่ออย่างเดียว ไม่แก้รูปร่าง glyph ใดๆ (ตัด glyph ที่ไม่ใช้ออก + แปลงเป็น woff2)
+  - NorasiBold-PlateSubset-ShortTail.woff2: ตัดย่อแบบเดียวกัน + ตัดหางล่างของ ฐ ฎ ฏ ญ ฤ ฦ ให้สั้นลง
+    (shorten_tails(): ย่อพิกัด y ของจุดที่อยู่ใต้เส้นฐานของ glyph เหล่านี้ให้ลึกเท่า TAIL_TARGET × ความสูงพยัญชนะ)
+  ตาราง GSUB/GPOS (การวางสระ/วรรณยุกต์) เก็บไว้ทั้งหมดทั้งสองไฟล์
 
 ตาราง metric วัดจากไฟล์ที่ตัดย่อแล้ว (ไฟล์เดียวกับที่แอปโหลด) ด้วย HarfBuzz — ตัวเดียวกับที่ Chromium ใช้จัดข้อความ
 ค่าทั้งหมดเป็นหน่วย em (1 = font-size)
@@ -21,8 +25,8 @@
 ใช้:
   python tools/plate_fonts.py \\
     --oswald   <OswaldFont>/fonts/ttf/Oswald-Medium.ttf  --oswald-ofl <OswaldFont>/OFL.txt \\
-    --norasi   <ttf-tlwg-0.7.4>/Norasi-Bold.ttf          --tlwg-src   <fonts-tlwg-0.7.4> \\
-    --oswald-ref "googlefonts/OswaldFont@<commit>"       --tlwg-ref   "tlwg/fonts-tlwg v0.7.4"
+    --oswald-ref "googlefonts/OswaldFont@<commit>"
+  (--norasi / --tlwg-src / --tlwg-ref มีค่าเริ่มต้นเป็นไฟล์ใน third_party/norasi/)
 """
 from __future__ import annotations
 
@@ -46,6 +50,13 @@ PROVINCES_TS = ROOT / 'src/data/thaiProvinces.ts'
 
 OSWALD_OUT = 'Oswald500-PlateDigits.woff2'
 NORASI_OUT = 'NorasiBold-PlateSubset.woff2'
+NORASI_SHORT_OUT = 'NorasiBold-PlateSubset-ShortTail.woff2'
+NORASI_ORIGINAL = ROOT / 'third_party/norasi/Norasi-Bold.ttf'
+
+# ตัดหาง (ไฟล์ ShortTail): พยัญชนะที่หางลงใต้เส้นฐานใน Norasi Bold — ฑ ฒ ไม่มีหางในฟอนต์นี้ (ลึก 0 / 0.007 em)
+# จึงไม่แก้ · ความลึกหางเป้าหมาย = TAIL_TARGET × ความสูงพยัญชนะ (ป้ายจริงวัดได้ 0.11–0.19)
+SHORT_TAIL_LETTERS = 'ฐฎฏญฤฦ'
+TAIL_TARGET = 0.2
 
 DIGITS = '0123456789'
 CONSONANTS = ''.join(chr(c) for c in range(0x0E01, 0x0E2F))  # ก–ฮ (รวม ฤ ฦ)
@@ -70,7 +81,39 @@ def sha256(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()
 
 
-def make_subset(src: Path, text: str, out: Path) -> bytes:
+def shorten_tails(src: Path, target: float) -> tuple[TTFont, dict]:
+    """
+    ตัดหางล่างของ SHORT_TAIL_LETTERS: จุดทุกจุดที่ y < 0 (ใต้เส้นฐาน) ของ glyph นั้น → y × k
+    โดย k = (target × ความสูงพยัญชนะ ก) ÷ ความลึกเดิม — ส่วนเหนือเส้นฐานไม่เปลี่ยน ความกว้าง (advance) ไม่เปลี่ยน
+    ลบคำสั่ง hinting (TrueType instructions) ของ glyph ที่แก้ เพราะอ้างพิกัดเดิม — glyph อื่นไม่แตะ
+    คืนค่า (ฟอนต์ที่แก้แล้ว, {ตัวอักษร: [ความลึกเดิม, ความลึกใหม่, k]} หน่วยฟอนต์)
+    """
+    font = TTFont(src)
+    font.recalcTimestamp = False  # คง head.modified ของต้นฉบับ (รันซ้ำได้ไฟล์เดิม)
+    cmap = font.getBestCmap()
+    glyf = font['glyf']
+    consonant = glyf[cmap[ord('ก')]].yMax
+    changes = {}
+    for ch in SHORT_TAIL_LETTERS:
+        name = cmap[ord(ch)]
+        g = glyf[name]
+        assert not g.isComposite(), name
+        depth = -g.yMin
+        k = target * consonant / depth
+        coords, _, _ = g.getCoordinates(glyf)
+        g.coordinates = type(coords)([(x, round(y * k) if y < 0 else y) for x, y in coords])
+        if hasattr(g, 'program'):
+            g.program.fromBytecode(b'')
+        g.recalcBounds(glyf)
+        changes[ch] = [depth, -g.yMin, round(k, 4)]
+    # แจ้งในชื่อเวอร์ชันว่าเป็นไฟล์ที่แก้แล้ว (ชื่อฟอนต์คงเดิม)
+    for rec in font['name'].names:
+        if rec.nameID == 5:
+            rec.string = rec.toUnicode() + '; plate subset, shortened descenders'
+    return font, changes
+
+
+def make_subset(src: Path | TTFont, text: str, out: Path) -> bytes:
     """ตัดย่อ → เขียน woff2 และคืนค่า TTF (ไม่บีบอัด) ของ subset เดียวกันไว้วัด metric"""
     opts = subset.Options()
     opts.layout_features = ['*']
@@ -78,7 +121,14 @@ def make_subset(src: Path, text: str, out: Path) -> bytes:
     opts.name_languages = ['*']
     opts.notdef_outline = True
     opts.drop_tables += ['FFTM', 'DSIG']
-    font = TTFont(src)
+    if isinstance(src, TTFont):
+        buf0 = io.BytesIO()
+        src.save(buf0)
+        buf0.seek(0)
+        font = TTFont(buf0)
+    else:
+        font = TTFont(src)
+    font.recalcTimestamp = False  # คง head.modified ของต้นฉบับ: รันซ้ำได้ไฟล์เดิมทุกไบต์
     s = subset.Subsetter(opts)
     s.populate(text=text)
     s.subset(font)
@@ -151,21 +201,28 @@ def main():
     ap.add_argument('--oswald', required=True, type=Path)
     ap.add_argument('--oswald-ofl', required=True, type=Path)
     ap.add_argument('--oswald-ref', required=True)
-    ap.add_argument('--norasi', required=True, type=Path)
-    ap.add_argument('--tlwg-src', required=True, type=Path, help='โฟลเดอร์ซอร์ส fonts-tlwg (มี COPYING และ GPL)')
-    ap.add_argument('--tlwg-ref', required=True)
+    ap.add_argument('--norasi', type=Path, default=NORASI_ORIGINAL)
+    ap.add_argument('--tlwg-src', type=Path, default=NORASI_ORIGINAL.parent, help='โฟลเดอร์ที่มี COPYING และ GPL ของ fonts-tlwg')
+    ap.add_argument('--tlwg-ref', default='tlwg/fonts-tlwg v0.7.4')
+    ap.add_argument('--tail-target', type=float, default=TAIL_TARGET)
     a = ap.parse_args()
 
     provs = provinces()
     norasi_text = ''.join(sorted(set(CONSONANTS + VOWELS + TONES + OTHER_MARKS + EXTRA + ''.join(provs))))
     osw = Shaper(make_subset(a.oswald, DIGITS, FONT_DIR / OSWALD_OUT))
     nor = Shaper(make_subset(a.norasi, norasi_text, FONT_DIR / NORASI_OUT))
+    short_font, tail_changes = shorten_tails(a.norasi, a.tail_target)
+    nor_short = Shaper(make_subset(short_font, norasi_text, FONT_DIR / NORASI_SHORT_OUT))
 
     # ใบอนุญาตคู่ไฟล์ฟอนต์
     shutil.copyfile(a.oswald_ofl, FONT_DIR / 'Oswald-OFL.txt')
     shutil.copyfile(a.tlwg_src / 'COPYING', FONT_DIR / 'Norasi-COPYING.txt')
     shutil.copyfile(a.tlwg_src / 'GPL', FONT_DIR / 'Norasi-GPL-2.txt')
     version = TTFont(a.norasi)['name'].getDebugName(5)
+    consonant_units = short_font['glyf'][short_font.getBestCmap()[0x0E01]].yMax
+    tail_notice = '; '.join(
+        f"{ch} (U+{ord(ch):04X}) depth {d0} -> {d1} units (k = {k})" for ch, (d0, d1, k) in tail_changes.items()
+    )
     (FONT_DIR / 'NorasiBold-PlateSubset-NOTICE.txt').write_text(
         f'''NorasiBold-PlateSubset.woff2 — modified version of Norasi Bold
 
@@ -174,10 +231,23 @@ Source:   {a.tlwg_ref} (https://github.com/tlwg/fonts-tlwg), file Norasi-Bold.tt
           sha256 of the original file: {sha256(a.norasi)}
 License:  GNU General Public License version 2 or later, with the font exception
           (see Norasi-COPYING.txt for copyright and the exception, Norasi-GPL-2.txt for the GPL text)
+          an unmodified copy of that file is kept in third_party/norasi/ of this repository
 Changes:  subset to Thai consonants, vowels, tone marks, ็ ์ ํ ๆ ฯ, space and every character used by
           the 77 Thai province names; converted to WOFF2. No glyph outline was changed.
           GSUB/GPOS tables kept. Produced by tools/plate_fonts.py in this repository
           (the corresponding source is the upstream source above plus that script).
+
+NorasiBold-PlateSubset-ShortTail.woff2 — modified version of Norasi Bold (same source and license as above)
+
+Changes:  the same subset and WOFF2 conversion as above, plus shortened descenders (tails below the baseline).
+          Modified glyphs: {tail_notice}
+          Method: every outline point with y < 0 (below the baseline) of those glyphs is moved to y * k, so the
+          tail depth becomes {a.tail_target} x the consonant height (height of the glyph uni0E01, {consonant_units} units).
+          Points on or above the baseline, advance widths and all other glyphs are unchanged. TrueType
+          hinting instructions of the modified glyphs were removed. The version string (name ID 5) has
+          "; plate subset, shortened descenders" appended. Not changed: ฑ (U+0E11) and ฒ (U+0E12), which
+          have no tail below the baseline in Norasi Bold. Function shorten_tails() in tools/plate_fonts.py.
+          Date of change: 2026-11-04.
 Exception: the font exception of the original is extended to this modified version:
           if you create a document which uses this font, and embed this font or unaltered portions
           of this font into the document, this font does not by itself cause the resulting document
@@ -200,6 +270,15 @@ Exception: the font exception of the original is extended to this modified versi
 
     # ---- อักษรไทยบรรทัดหลัก Norasi ----
     letters = {c: nor.metric(c) for c in CONSONANTS}
+    short_letters = {c: nor_short.metric(c) for c in CONSONANTS}
+    changed = sorted(c for c in CONSONANTS if short_letters[c] != letters[c])
+    assert changed == sorted(SHORT_TAIL_LETTERS), changed
+    consonant_em = nor.ink('ก')[4]
+    # ความลึกหาง (em และเท่าของความสูงพยัญชนะ) ก่อน/หลังตัด — ฑ ฒ รวมไว้เพื่อรายงาน (ไม่มีหาง)
+    tail_depth = {
+        c: [r4(-letters[c][3]), r4(-short_letters[c][3]), r4(-letters[c][3] / consonant_em), r4(-short_letters[c][3] / consonant_em)]
+        for c in 'ฐฎฏญฑฒฤฦ'
+    }
 
     # ---- ชื่อจังหวัด Norasi ----
     spacing = [c for c in norasi_text if c not in UPPER_MARKS + LOWER_MARKS]
@@ -228,14 +307,20 @@ Exception: the font exception of the original is extended to this modified versi
         # พยัญชนะที่หัวสูงกว่า ก เล็กน้อย (ช ซ ศ ส ฮ) — ไม่รวมอักษรหัวสูง ป ฝ ฟ ฬ
         'consonantTopEm': r4(max(nor.ink(c)[4] for c in normal)),
     }
-    shaped = {}
+    shaped, shaped_short = {}, {}
     for p in provs:
         adv, x0, x1, y0, y1 = nor.ink(p)
         shaped[p] = [r4(adv), r4(x1 - x0), r4(y1), r4(-y0)]
+        # ไฟล์ ShortTail ใช้กับชื่อจังหวัดด้วย (โหลดไฟล์เดียว) — เก็บเฉพาะชื่อที่ผลต่างจากไฟล์เดิม (มีพยัญชนะที่ตัดหาง)
+        adv2, a0, a1, b0, b1 = nor_short.ink(p)
+        s2 = [r4(adv2), r4(a1 - a0), r4(b1), r4(-b0)]
+        if s2 != shaped[p]:
+            assert any(c in p for c in SHORT_TAIL_LETTERS), p
+            shaped_short[p] = s2
 
     out = f'''/* eslint-disable */
 // สร้างโดย tools/plate_fonts.py — ห้ามแก้ด้วยมือ (รันสคริปต์ใหม่เมื่อเปลี่ยนไฟล์ฟอนต์)
-// วัดจากไฟล์ที่ตัดย่อแล้ว (src/assets/fonts/{OSWALD_OUT}, {NORASI_OUT}) ด้วย HarfBuzz · หน่วย em
+// วัดจากไฟล์ที่ตัดย่อแล้ว (src/assets/fonts/{OSWALD_OUT}, {NORASI_OUT}, {NORASI_SHORT_OUT}) ด้วย HarfBuzz · หน่วย em
 // GlyphMetric = [advance, left bearing, right bearing, yMin, yMax]
 
 export const CUSTOM_FONT_SOURCES = {json.dumps({
@@ -267,12 +352,23 @@ export const NORASI_PROVINCE_ADVANCE_EM: Record<string, number> = {ts_obj(prov_a
  */
 export const NORASI_PROVINCE_VERTICAL = {json.dumps(vertical, indent=2)} as const;
 
+/** Norasi Bold ไฟล์ตัดหาง ({NORASI_SHORT_OUT}): metric ของพยัญชนะ ก–ฮ — ต่างจาก NORASI_LETTER_METRICS เฉพาะ {''.join(SHORT_TAIL_LETTERS)} */
+export const NORASI_SHORT_TAIL_LETTER_METRICS: Record<string, readonly [number, number, number, number, number]> = {ts_obj(short_letters)};
+
+/** ความลึกหางล่าง: [เดิม em, ตัดหาง em, เดิม ÷ ความสูงพยัญชนะ, ตัดหาง ÷ ความสูงพยัญชนะ] — เป้าหมาย {a.tail_target} */
+export const NORASI_TAIL_DEPTH: Record<string, readonly [number, number, number, number]> = {ts_obj(tail_depth)};
+export const NORASI_TAIL_TARGET = {a.tail_target};
+
+/** ชื่อจังหวัดที่จัดด้วยไฟล์ตัดหางแล้วผลต่างจาก NORASI_PROVINCES_SHAPED (มีพยัญชนะที่ตัดหาง) — รูปแบบเดียวกัน */
+export const NORASI_SHORT_TAIL_PROVINCES_SHAPED: Record<string, readonly [number, number, number, number]> = {ts_obj(shaped_short)};
+
 /** ชื่อจังหวัด 77 จังหวัดที่จัดด้วย HarfBuzz: [advance, ความกว้างหมึก, ยอดหมึก, ความลึกหมึก] — ใช้ในเทสต์ */
 export const NORASI_PROVINCES_SHAPED: Record<string, readonly [number, number, number, number]> = {ts_obj(shaped)};
 '''
     METRICS_TS.write_text(out, encoding='utf-8')
     print('wrote', METRICS_TS.relative_to(ROOT))
-    for f in [OSWALD_OUT, NORASI_OUT]:
+    print('tail changes (font units)', tail_changes)
+    for f in [OSWALD_OUT, NORASI_OUT, NORASI_SHORT_OUT]:
         print(f, (FONT_DIR / f).stat().st_size, 'bytes')
     mean_gap = sum(pair_gap.values()) / len(pair_gap)
     print('digit natural gap mean', round(mean_gap, 4), 'min', min(pair_gap.values()), 'max', max(pair_gap.values()))

@@ -1639,6 +1639,15 @@ table.ranking-table {
   font-style: normal;
   font-display: block;
 }
+/* Norasi Bold ไฟล์ตัดหาง ฐ ฎ ฏ ญ ฤ ฦ (featureFlags.ts → PLATE_TAIL_MODE = 'shortened') — ไฟล์ที่แก้แล้วตาม GPL
+   รายการแก้ไขใน NorasiBold-PlateSubset-NOTICE.txt · เบราว์เซอร์โหลดเฉพาะไฟล์ของแบบที่ใช้ */
+@font-face {
+  font-family: 'PlateNorasiShortTail';
+  src: url('../assets/fonts/NorasiBold-PlateSubset-ShortTail.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
 @font-face {
   font-family: 'PlateThaiProvince';
   src: url('../assets/fonts/NotoSansThaiLooped-PlateSubset-wdth80.woff2') format('woff2');
@@ -1694,6 +1703,11 @@ table.ranking-table {
 .plate-image__text--custom .plate-image__province {
   font-family: 'PlateNorasi', 'PlateThaiProvince', 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
   font-weight: 700;
+}
+/* แบบตัดหาง: อักษรบรรทัดหลักและชื่อจังหวัดใช้ไฟล์ตัดหางไฟล์เดียว (ไม่มี PlateNorasi ในรายการ จึงไม่โหลดไฟล์เดิม) */
+.plate-image__text--short-tail .plate-image__letter,
+.plate-image__text--short-tail .plate-image__province {
+  font-family: 'PlateNorasiShortTail', 'PlateThaiProvince', 'PlateThai', 'Noto Sans Thai Looped', 'Sarabun', sans-serif;
 }
 /* แถวใต้ป้าย: "ภาพจำลอง ไม่ใช่ป้ายจริง" + ปุ่มคัดลอก (พื้นที่กด ≥ 44px แต่ดูเป็นปุ่มเล็ก) + สถานะ */
 .plate-figure__caption {

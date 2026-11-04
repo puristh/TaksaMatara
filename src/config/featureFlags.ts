@@ -27,3 +27,12 @@ export const PLATE_IMAGE_DEFAULT_PROVINCE: string | null = 'กรุงเท�
  * ถ้าตั้งเป็น 'custom' แต่ไฟล์ฟอนต์โหลดไม่สำเร็จ PlateImage จะถอยไปใช้ชุด 'noto' เอง
  */
 export const PLATE_FONT_STYLE: 'custom' | 'noto' = 'custom';
+
+/**
+ * หางล่างของอักษรบรรทัดหลัก (ฐ ฎ ฏ ญ ฤ ฦ) ในฟอนต์ชุด custom — จุดเดียวที่ตั้งค่านี้
+ * ระยะจากเส้นฐานบรรทัดหลักถึงชื่อจังหวัดเท่ากันทุกป้าย (PLATE_LAYOUT.lineGapH) ไม่ขึ้นกับหาง
+ * - 'shortened': ใช้ Norasi Bold ไฟล์ตัดหาง (ลึก 0.2 เท่าความสูงพยัญชนะ ใกล้ป้ายจริง) — ตัวเลขทุกป้ายได้ขนาดเต็ม
+ * - 'fit': ใช้ Norasi Bold เดิม (หางลึก ~0.4–0.5 เท่า) — ป้ายที่มีหางย่อบรรทัดหลักให้ปลายหางพ้นชื่อจังหวัด
+ * ชุด noto ไม่ได้ใช้ค่านี้ (หางตามฟอนต์ Noto และย่อแบบ 'fit' เสมอ)
+ */
+export const PLATE_TAIL_MODE: 'fit' | 'shortened' = 'shortened';
