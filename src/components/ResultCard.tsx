@@ -1,9 +1,10 @@
 import type { PlateInput, PlateVerdict } from '../engine';
 import { ModeDetailPanel } from './ModeDetailPanel';
 import type { ReturnContext } from './RankingPanel';
-import { PlateImage } from './PlateImage';
-import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
-import { plateCopyText } from './plateCopy';
+import { PlateWithTags } from './PlateWithTags';
+
+// popularStars ย้ายไปอยู่กับภาพป้าย (PlateWithTags.tsx) — export ต่อจากที่นี่ให้ที่อื่นที่ import อยู่ใช้ได้เหมือนเดิม
+export { popularStars } from './PlateWithTags';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -20,10 +21,6 @@ export function buildBirthdayCompatLinkArgs(
 ): [DetailModeInput, ReturnContext] {
   const { frontDigit, thaiLetters, tailDigits } = result.input;
   return [{ frontDigit, thaiLetters, tailDigits }, RESULT_CARD_RETURN_CONTEXT];
-}
-
-export function popularStars(weight: number): string {
-  return '★'.repeat(weight);
 }
 
 export function badgeClass(type: 'positive' | 'warning' | 'neutral'): string {
@@ -57,40 +54,13 @@ export function ResultCard({
 }: ResultCardProps) {
   const { input, mode1, mode2, mode3, auction, popular, verdict, badges } = result;
 
-  // ภาพป้ายแสดงจังหวัดที่ผู้ใช้พิมพ์อยู่แล้ว — ถ้าปิดบรรทัดจังหวัดของภาพป้ายทั้งระบบ
-  // (PLATE_IMAGE_DEFAULT_PROVINCE = null) ให้แสดงจังหวัดเป็นข้อความแทน ไม่ให้ข้อมูลหาย
-  const provinceLabel = resolvePlateProvinceLabel(input);
-  const provinceNotOnImage = input.province?.trim() && provinceLabel === null ? input.province.trim() : null;
-  const hasPlateTags = auction.isAuction || popular.isPopular || provinceNotOnImage !== null;
-
   const isAuctionConflict = auction.isAuction && mode2.tier === 'tier4';
 
   return (
     <div className={`card${isAuctionConflict ? ' auction-conflict' : ''}`}>
       <div className="card-top">
-        <div className="card-plate-head">
-          <PlateImage
-            frontDigit={input.frontDigit}
-            thaiLetters={input.thaiLetters}
-            tailDigits={input.tailDigits}
-            variant={plateVariantFor(auction)}
-            provinceLabel={provinceLabel}
-            copyText={plateCopyText(input)}
-            provinceNote={plateProvinceNote(input)}
-          />
-          {/* ชิปเลขทะเบียนเดิมเอาออกเพราะซ้ำกับภาพป้าย — แท็กที่ภาพป้ายไม่มีย้ายมาอยู่ข้าง/ใต้ภาพ */}
-          {hasPlateTags && (
-            <div className="plate-tags">
-              {provinceNotOnImage && <span className="prov">{provinceNotOnImage}</span>}
-              {auction.isAuction && (
-                <span className="auction-tag">● เลขประมูล {auction.categories.join(', ')}</span>
-              )}
-              {popular.isPopular && (
-                <span className="popular-tag">เลขสวย {popularStars(popular.weight)}</span>
-              )}
-            </div>
-          )}
-        </div>
+        {/* ชิปเลขทะเบียนเดิมเอาออกเพราะซ้ำกับภาพป้าย — แท็กที่ภาพป้ายไม่มีอยู่ข้าง/ใต้ภาพ (PlateWithTags) */}
+        <PlateWithTags input={input} auction={auction} popular={popular} />
         <div className={`verdict ${verdict ? 'v-good' : 'v-bad'}`}>
           {verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
           {isAuctionConflict && ' (แสดงเพราะเปิด "แสดงเลขประมูลทั้งหมด")'}

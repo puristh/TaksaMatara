@@ -85,12 +85,6 @@ body {
     color 0.2s ease;
 }
 
-[data-theme='dark'] .plate {
-  background: #0e1116;
-  border-color: var(--ink);
-  color: var(--ink);
-}
-
 .app {
   max-width: 880px;
   margin: 0 auto;
@@ -443,29 +437,6 @@ h1 {
   align-items: flex-start;
   gap: 16px;
   flex-wrap: wrap;
-}
-
-.plate {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  background: #fff;
-  border: 2px solid var(--ink);
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-}
-.plate .prov {
-  font-family: 'Sarabun', sans-serif;
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--ink-soft);
-  border-left: 1px solid var(--line);
-  padding-left: 10px;
-  line-height: 1.3;
 }
 
 .verdict {
@@ -1575,9 +1546,6 @@ table.ranking-table {
 .compare-column.winner {
   border-color: var(--good-strong);
 }
-.compare-column-header .plate {
-  margin: 8px 0;
-}
 .compare-rank-row {
   display: flex;
   align-items: center;
@@ -1785,6 +1753,16 @@ table.ranking-table {
 .card-plate-head .plate-figure {
   --plate-max-width: 260px;
   flex: 0 1 260px;
+}
+/* การ์ดเปรียบเทียบ / "เลขที่เล็งไว้": แท็กอยู่ใต้ป้าย (ขนาดป้ายตามกฎ .compare-column-header ด้านล่าง) */
+.card-plate-head--column {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.card-plate-head--column .plate-figure {
+  flex: none;
+  width: 100%;
 }
 
 /* หน้าเปรียบเทียบ: ป้ายทุกใบต้องขนาดเท่ากัน — คอลัมน์ 1fr กว้างไม่เท่ากันได้เมื่อเนื้อหาของ

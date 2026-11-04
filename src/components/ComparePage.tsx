@@ -285,7 +285,6 @@ export function ComparePage({ initialFirstSlot }: ComparePageProps = {}) {
                   result={result}
                   label={slotLabel(i)}
                   isWinner={result.rank === Math.min(...results.map((r) => r.rank))}
-                  showPlateImage
                 />
               ))}
             </div>

@@ -6,6 +6,7 @@ import { getDayOfWeekFromDate, isValidCalendarDate } from '../engine/dateOfWeek'
 import type { WeekDay } from '../engine/dateOfWeek';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
+import { PlateWithTags } from './PlateWithTags';
 import {
   frontDigitToField,
   isOptionalFrontDigitField,
@@ -23,6 +24,15 @@ interface BirthdayCompatPageProps {
   onBack: () => void;
   /** ข้อความปุ่มกลับ เปลี่ยนตามต้นทาง — คำนวณไว้แล้วจากฝั่งผู้เรียก */
   backLabel: string;
+}
+
+/** การ์ดภาพป้ายของทะเบียนที่กำลังวิเคราะห์ (ส่วนบนของผล) — แยกออกมาเพื่อเทสได้โดยไม่ต้องกรอกฟอร์ม */
+export function BirthdayPlateCard({ input }: { input: DetailModeInput }) {
+  return (
+    <div className="birthday-compat-card birthday-compat-plate">
+      <PlateWithTags input={input} />
+    </div>
+  );
 }
 
 export const THAI_LETTER_PATTERN = /^[ก-ฮ]$/;
@@ -300,6 +310,8 @@ export function BirthdayCompatPage({ initialInput, onBack, backLabel }: Birthday
         </div>
       ) : (
         <>
+          {/* ทะเบียนที่กำลังวิเคราะห์ — ภาพป้ายแบบเดียวกับหน้าเลขเดี่ยว (หน้านี้ไม่มีช่องจังหวัด จึงใช้ค่าเริ่มต้น) */}
+          {plateInput && <BirthdayPlateCard input={plateInput} />}
           {showTaksa && taksaResult && (
             <div className="birthday-compat-card">
               <div className="birthday-compat-section-title">Mode 6 · ทักษาปกรณ์/กาลกิณี</div>

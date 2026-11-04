@@ -1,13 +1,9 @@
 import type { ReactNode } from 'react';
 import type { ComparisonResult } from '../engine/comparePlates';
 import { ModeDetailPanel } from './ModeDetailPanel';
-import { formatPlateText } from '../engine/plateText';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
-import { detectAuctionNumber } from '../engine/auctionNumber';
-import { PlateImage } from './PlateImage';
-import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
-import { plateCopyText } from './plateCopy';
+import { PlateWithTags } from './PlateWithTags';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -20,9 +16,6 @@ interface ComparisonResultCardProps {
   onViewAyatana6?: (input: DetailModeInput) => void;
   /** ปุ่ม/ลิงก์เพิ่มเติมใต้บรรทัดคะแนน เช่น "เช็คกับวันเกิด →" ของหน้า Batch */
   headerExtra?: ReactNode;
-  /** แสดงภาพจำลองป้ายทะเบียนในหัวการ์ด — เปิดเฉพาะหน้าเปรียบเทียบ (ComparePage) ในเฟสนี้
-   * โหมด "เลขที่เล็งไว้" ของ Batch ที่ใช้การ์ดเดียวกันยังไม่แสดง */
-  showPlateImage?: boolean;
 }
 
 /**
@@ -36,27 +29,13 @@ export function ComparisonResultCard({
   onViewFiveElement,
   onViewAyatana6,
   headerExtra,
-  showPlateImage = false,
 }: ComparisonResultCardProps) {
-  const plateText = formatPlateText(result.input);
-
   return (
     <div className={`compare-column${isWinner ? ' winner' : ''}`}>
       <div className="compare-column-header">
         <div className="compare-slot-label">{label}</div>
-        {showPlateImage && (
-          <PlateImage
-            frontDigit={result.input.frontDigit}
-            thaiLetters={result.input.thaiLetters}
-            tailDigits={result.input.tailDigits}
-            variant={plateVariantFor(detectAuctionNumber(result.input.tailDigits))}
-            provinceLabel={resolvePlateProvinceLabel(result.input)}
-            copyText={plateCopyText(result.input)}
-            provinceNote={plateProvinceNote(result.input)}
-          />
-        )}
-        {/* ชิปเลขทะเบียนแสดงเฉพาะเมื่อไม่มีภาพป้าย (เช่น โหมด "เลขที่เล็งไว้" ของ Batch) — ชิปนี้ไม่มีแท็กอื่น */}
-        {!showPlateImage && <div className="plate">{plateText}</div>}
+        {/* ภาพป้าย + แท็กเลขประมูล/เลขสวย แทนชิปเลขทะเบียนเดิม (ทั้งหน้าเปรียบเทียบและโหมด "เลขที่เล็งไว้") */}
+        <PlateWithTags input={result.input} layout="column" />
         <div className="compare-rank-row">
           <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>
           <span className={`verdict ${result.mode1.verdict ? 'v-good' : 'v-bad'}`}>
