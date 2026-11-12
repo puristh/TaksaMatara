@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { chooseRankingLayout, RANKING_ROW_PLATE_WIDTH, RANKING_TABLE_MIN_REM, RankingPanel } from './RankingPanel';
+import { chooseRankingLayout, RANKING_ROW_PLATE_WIDTH, RANKING_TABLE_MIN_REM, RANKING_WIDE_MAX_PX, RankingPanel } from './RankingPanel';
 import type { BatchReturnState, RankingLayout, RowLimit } from './RankingPanel';
 import { generateTopCandidates } from '../engine/ranking';
 import { formatPlateText } from '../engine/plateText';
@@ -39,15 +39,17 @@ describe('ตาราง (จอกว้าง): ทุกแถวมีภ�
     it(`จำนวนแถว ${n}: ภาพป้ายย่อ ${n} ภาพ ข้อความ sr-only ${n} แถว ลำดับ/คะแนนเท่าเดิม`, () => {
       const html = render(n, 'table');
       const cands = expected(n);
-      expect(count(html, /<tr data-ranking-row="">/g)).toBe(n);
+      // เดิม: /<tr data-ranking-row="">/ — แถวมี class medal เพิ่ม (batch-emphasis)
+      expect(count(html, /<tr data-ranking-row="" class="ranking-row--/g)).toBe(n);
       expect(count(html, /<td class="plate-cell"><figure class="plate-figure plate-figure--compact" style="--plate-max-width:176px"><svg class="plate-image /g)).toBe(n);
       // sr-only ตามลำดับเดียวกับ engine และ aria-label ของภาพเหมือนภาพขนาดปกติ (มีชื่อจังหวัด)
       const srTexts = [...html.matchAll(/<span class="sr-only">([^<]+)<\/span>/g)].map((m) => m[1]);
       expect(srTexts).toEqual(cands.map((c) => formatPlateText(c.input)));
       for (const c of cands) expect(html).toContain(`aria-label="ภาพจำลองป้ายทะเบียน ${formatPlateText(c.input)} กรุงเทพมหานคร`);
-      const scores = [...html.matchAll(/<td class="score-cell">(\d+)<\/td>/g)].map((m) => Number(m[1]));
+      // เดิม: ตัวเลขตรงใน <td class="score-cell"> / <td class="rank"> — ตอนนี้เป็น ScoreFigure / RankBadge (batch-emphasis)
+      const scores = [...html.matchAll(/<span class="score-figure__value">(\d+)<\/span>/g)].map((m) => Number(m[1]));
       expect(scores).toEqual(cands.map((c) => c.finalScore));
-      const ranks = [...html.matchAll(/<td class="rank">(\d+)<\/td>/g)].map((m) => Number(m[1]));
+      const ranks = [...html.matchAll(/role="img" aria-label="อันดับที่ (\d+)"/g)].map((m) => Number(m[1]));
       expect(ranks).toEqual(cands.map((_, i) => i + 1));
     });
   it('ไม่มี caption/ปุ่มคัดลอกในแถว · มีประโยค "ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง" ครั้งเดียวเหนือตาราง (มองเห็นได้ ไม่ใช่ sr-only)', () => {
@@ -71,32 +73,46 @@ describe('การ์ด (จอแคบ): ต่อทะเบียน = �
       const html = render(n, 'cards');
       const cands = expected(n);
       expect(html).not.toContain('<table');
-      expect(count(html, /<li class="ranking-card" data-ranking-row="">/g)).toBe(n);
+      // เดิม: class="ranking-card" — การ์ดมี class medal เพิ่ม (batch-emphasis)
+      expect(count(html, /<li class="ranking-card ranking-card--[a-z]+" data-ranking-row="">/g)).toBe(n);
       expect(count(html, /<svg class="plate-image /g)).toBe(n);
       expect(count(html, /plate-figure--compact/g)).toBe(0);
       expect(count(html, /class="plate-copy-btn"/g)).toBe(n);
       expect(count(html, /ภาพจำลอง ไม่ใช่ป้ายจริง/g)).toBe(n);
       expect(count(html, /class="ranking-expand-btn"/g)).toBe(n);
-      const ranks = [...html.matchAll(/<span class="ranking-card-rank">อันดับ (\d+)<\/span>/g)].map((m) => Number(m[1]));
+      // เดิม: "อันดับ N" ใน .ranking-card-rank และ <b class="score-cell"> — ตอนนี้เป็น RankBadge / ScoreFigure (batch-emphasis)
+      const ranks = [...html.matchAll(/role="img" aria-label="อันดับที่ (\d+)"/g)].map((m) => Number(m[1]));
       expect(ranks).toEqual(cands.map((_, i) => i + 1));
-      const scores = [...html.matchAll(/<b class="score-cell">(\d+)<\/b>/g)].map((m) => Number(m[1]));
+      const scores = [...html.matchAll(/<span class="score-figure__value">(\d+)<\/span>/g)].map((m) => Number(m[1]));
       expect(scores).toEqual(cands.map((c) => c.finalScore));
       const labels = [...html.matchAll(/aria-label="คัดลอกเลขทะเบียน ([^"]+)"/g)].map((m) => m[1]);
       // ไม่ได้พิมพ์จังหวัด → คัดลอกเลขทะเบียนอย่างเดียว (plateCopyText เดิม)
       expect(labels).toEqual(cands.map((c) => formatPlateText(c.input)));
-      expect(count(html, /class="verdict v-/g)).toBe(n);
+      // เดิม: class="verdict v-…" — verdict pill (batch-emphasis)
+      expect(count(html, /class="verdict-pill verdict-pill--(good|bad)"/g)).toBe(n);
       expect(count(html, /class="auction-tag"/g)).toBe(cands.filter((c) => c.auction.isAuction).length);
     });
 });
 
 describe('เลือกตาราง/การ์ดตามความกว้างพื้นที่ผลลัพธ์ (rem)', () => {
-  it(`ตารางเมื่อกว้าง ≥ ${RANKING_TABLE_MIN_REM}rem: กรอบแอป 840px ตัวอักษร 100% = ตาราง · จอ 768px / ตัวอักษร ≥ 112.5% / จอ 390px = การ์ด`, () => {
-    expect(chooseRankingLayout(840, 16)).toBe('table'); // จอ ≥ 880px (1024 / 1280 / 1650)
-    expect(chooseRankingLayout(780, 16)).toBe('cards'); // จอ 820px
-    expect(chooseRankingLayout(728, 16)).toBe('cards'); // จอ 768px
-    expect(chooseRankingLayout(840, 18)).toBe('cards'); // ตัวอักษร 112.5%
-    expect(chooseRankingLayout(840, 28)).toBe('cards'); // ตัวอักษร 175%
-    expect(chooseRankingLayout(350, 16)).toBe('cards'); // จอ 390px
+  // เดิม: 52rem, กรอบแอป 840px = ตาราง — batch-emphasis ทำให้ตารางกว้างขึ้น (ต้องการ 55.9rem) ผู้ใช้ให้ขยับจุดสลับขึ้นแทนการย่อเนื้อหา
+  // พื้นที่ผลลัพธ์แบบตารางกว้างได้ถึง RANKING_WIDE_MAX_PX (1040px) ตามความกว้างจอ − 57px
+  it(`ตารางเมื่อกว้าง ≥ ${RANKING_TABLE_MIN_REM}rem: จอ ≥ ~961px ตัวอักษร 100% = ตาราง · จอ 872/820/768/390px และตัวอักษร ≥ 150% = การ์ด`, () => {
+    const area = (vw: number) => Math.max(840 > vw - 40 ? vw - 40 : 840, Math.min(RANKING_WIDE_MAX_PX, vw - 57));
+    expect(chooseRankingLayout(area(1650), 16)).toBe('table');
+    expect(chooseRankingLayout(area(1280), 16)).toBe('table');
+    expect(chooseRankingLayout(area(1024), 16)).toBe('table');
+    expect(chooseRankingLayout(area(961), 16)).toBe('table');
+    expect(chooseRankingLayout(area(940), 16)).toBe('cards');
+    expect(chooseRankingLayout(area(872), 16)).toBe('cards');
+    expect(chooseRankingLayout(area(820), 16)).toBe('cards');
+    expect(chooseRankingLayout(area(768), 16)).toBe('cards');
+    expect(chooseRankingLayout(area(390), 16)).toBe('cards');
+    expect(chooseRankingLayout(area(1650), 18)).toBe('table'); // ตัวอักษร 112.5% จอ ≥ ~1074px
+    expect(chooseRankingLayout(area(1280), 18)).toBe('table'); // ตารางต้องการ 969px ≤ 1040px
+    expect(chooseRankingLayout(area(1024), 18)).toBe('cards');
+    expect(chooseRankingLayout(area(1650), 24)).toBe('cards'); // 150%
+    expect(chooseRankingLayout(area(1650), 28)).toBe('cards'); // 175%
   });
 });
 

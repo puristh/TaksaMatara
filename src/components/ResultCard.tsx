@@ -2,6 +2,7 @@ import type { PlateInput, PlateVerdict } from '../engine';
 import { ModeDetailPanel } from './ModeDetailPanel';
 import type { ReturnContext } from './RankingPanel';
 import { PlateWithTags } from './PlateWithTags';
+import { VerdictPill } from './RankEmphasis';
 
 // popularStars ย้ายไปอยู่กับภาพป้าย (PlateWithTags.tsx) — export ต่อจากที่นี่ให้ที่อื่นที่ import อยู่ใช้ได้เหมือนเดิม
 export { popularStars } from './PlateWithTags';
@@ -61,10 +62,15 @@ export function ResultCard({
       <div className="card-top">
         {/* ชิปเลขทะเบียนเดิมเอาออกเพราะซ้ำกับภาพป้าย — แท็กที่ภาพป้ายไม่มีอยู่ข้าง/ใต้ภาพ (PlateWithTags) */}
         <PlateWithTags input={input} auction={auction} popular={popular} />
-        <div className={`verdict ${verdict ? 'v-good' : 'v-bad'}`}>
-          {verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
-          {isAuctionConflict && ' (แสดงเพราะเปิด "แสดงเลขประมูลทั้งหมด")'}
-        </div>
+        {/* verdict pill เดียวกับหน้า Batch (ข้อความเลขประมูลอยู่นอก pill ให้ screen reader อ่านได้) */}
+        <VerdictPill
+          verdict={verdict}
+          extra={
+            isAuctionConflict && (
+              <span className="verdict-pill__extra">(แสดงเพราะเปิด &quot;แสดงเลขประมูลทั้งหมด&quot;)</span>
+            )
+          }
+        />
       </div>
 
       <div className="badges">

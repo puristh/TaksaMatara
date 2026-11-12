@@ -4,6 +4,7 @@ import { ModeDetailPanel } from './ModeDetailPanel';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
 import { PlateWithTags } from './PlateWithTags';
+import { RankBadge, rankTier, ScoreFigure, VerdictPill } from './RankEmphasis';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -16,6 +17,8 @@ interface ComparisonResultCardProps {
   onViewAyatana6?: (input: DetailModeInput) => void;
   /** ปุ่ม/ลิงก์เพิ่มเติมใต้บรรทัดคะแนน เช่น "เช็คกับวันเกิด →" ของหน้า Batch */
   headerExtra?: ReactNode;
+  /** หน้า Batch (โหมด "เลขที่เล็งไว้"): ป้ายอันดับ medal + verdict pill + คะแนนตัวใหญ่ — หน้าเปรียบเทียบไม่ส่ง (แสดงแบบเดิม) */
+  emphasis?: boolean;
 }
 
 /**
@@ -29,23 +32,40 @@ export function ComparisonResultCard({
   onViewFiveElement,
   onViewAyatana6,
   headerExtra,
+  emphasis = false,
 }: ComparisonResultCardProps) {
   return (
-    <div className={`compare-column${isWinner ? ' winner' : ''}`}>
+    <div
+      className={`compare-column${isWinner ? ' winner' : ''}${emphasis ? ` compare-column--emphasis compare-column--${rankTier(result.rank)}` : ''}`}
+    >
       <div className="compare-column-header">
         <div className="compare-slot-label">{label}</div>
         {/* ภาพป้าย + แท็กเลขประมูล/เลขสวย แทนชิปเลขทะเบียนเดิม (ทั้งหน้าเปรียบเทียบและโหมด "เลขที่เล็งไว้") */}
         <PlateWithTags input={result.input} layout="column" />
-        <div className="compare-rank-row">
-          <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>
-          <span className={`verdict ${result.mode1.verdict ? 'v-good' : 'v-bad'}`}>
-            {result.mode1.verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
-          </span>
-        </div>
-        <div className="compare-score-line">
-          คะแนนรวม: {result.finalScore}
-          {result.hasBadPair && ' · พบคู่เสีย (Mode 2)'}
-        </div>
+        {emphasis ? (
+          <div className="compare-emphasis-row">
+            <RankBadge rank={result.rank} />
+            <VerdictPill verdict={result.mode1.verdict} />
+            <ScoreFigure
+              score={result.finalScore}
+              rank={result.rank}
+              note={result.hasBadPair && <span className="score-figure__note">พบคู่เสีย (Mode 2)</span>}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="compare-rank-row">
+              <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>
+              <span className={`verdict ${result.mode1.verdict ? 'v-good' : 'v-bad'}`}>
+                {result.mode1.verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
+              </span>
+            </div>
+            <div className="compare-score-line">
+              คะแนนรวม: {result.finalScore}
+              {result.hasBadPair && ' · พบคู่เสีย (Mode 2)'}
+            </div>
+          </>
+        )}
         {headerExtra}
       </div>
 
