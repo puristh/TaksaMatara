@@ -6,6 +6,7 @@ import { analyzeAyatana6 } from '../engine/ayatana6';
 import type { Ayatana6Result } from '../engine/ayatana6';
 import type { Mode1Result, Mode2Result, Mode3Result, PlateInput } from '../engine';
 import { FEATURE_FLAGS } from '../config/featureFlags';
+import type { ReactNode } from 'react';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -46,6 +47,9 @@ interface ModeDetailPanelProps {
   onViewFiveElement?: (input: DetailModeInput) => void;
   /** ถ้าไม่ส่ง prop นี้มา หรือ FEATURE_FLAGS.ayatana6Mode = false จะไม่แสดงผลลัพธ์/ลิงก์เลย */
   onViewAyatana6?: (input: DetailModeInput) => void;
+  /** ช่องแรกของ detail-grid (เช่น ภาพป้ายขนาดเต็มในแถวขยายของ Batch) — มีค่า = จัดเป็น 2 คอลัมน์ (ช่องนี้ + 3 Mode)
+   * ให้ภาพป้ายไม่เหลือที่ว่างฝั่งขวา · ไม่ส่ง = 3 คอลัมน์เหมือนเดิม */
+  leading?: ReactNode;
 }
 
 /**
@@ -87,6 +91,7 @@ export function ModeDetailPanel({
   mode3,
   onViewFiveElement,
   onViewAyatana6,
+  leading,
 }: ModeDetailPanelProps) {
   const { mode1Calc, mode3Calc } = buildModeCalcLines(input, mode1, mode3);
 
@@ -96,7 +101,8 @@ export function ModeDetailPanel({
 
   return (
     <>
-      <div className="detail-grid">
+      <div className={`detail-grid${leading ? ' detail-grid--with-leading' : ''}`}>
+        {leading && <div className="detail-leading">{leading}</div>}
         <div className="detail-box">
           <div className="mode-label">บทสรุปพลังเลขศาสตร์ทะเบียนรถ · Verdict หลัก</div>
           <div className="calc">{mode1Calc}</div>

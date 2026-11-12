@@ -65,8 +65,8 @@ export const PLATE_BASE_H = Math.round(PLATE_W / BASE_ASPECT);
  * ความสูงป้ายเทียบป้ายฐาน (กว้างเท่าเดิม) — เลือก 1.05 (2.34:1 → ~2.23:1) คู่กับหางแบบตัดสั้น: ระยะระหว่างบรรทัด
  * 18.4% ของป้ายฐาน (ป้ายจริง 15.0–19.9%) และตัวเลขทุกป้ายในชุดตรวจได้ขนาดเต็มตามความกว้าง (1.1 = ช่องว่างกว้างเกินป้ายจริง,
  * 1.0 = ชื่อจังหวัดที่มีสระบนสูงชิดบรรทัดหลัก) — แบบหางเดิม (fit) ต้องใช้ 1.1 ตัวเลขป้ายที่มีหางจึงใกล้ขนาดเต็ม
- * ลองค่าอื่นได้ที่ค่านี้ที่เดียว: ชื่อจังหวัดคงระยะจริงจากขอบล่าง บรรทัดหลักอยู่เหนือชื่อจังหวัด LINE_GAP_H0 เสมอ
- * พื้นที่ที่เพิ่ม/ลดจึงไปอยู่ที่ขอบบน — ตั้ง LINE_GAP_H0 คู่กันตามสูตรด้านล่าง (plateAspect.test.ts ตรวจคู่ค่านี้)
+ * ลองค่าอื่นได้ที่ค่านี้ที่เดียว: ระยะระหว่างบรรทัดคำนวณตามเอง (lineGapForHeightScale) — ขอบบนถึงเส้นฐานบรรทัดหลัก
+ * และชื่อจังหวัดถึงขอบล่างคงระยะจริง ความสูงที่เพิ่ม/ลดไปอยู่ที่ระยะระหว่างบรรทัดทั้งหมด
  */
 const PLATE_HEIGHT_SCALE = 1.05;
 /** ขนาดชื่อจังหวัดเทียบค่าที่วัดจากภาพป้าย (ทั้งความสูงพยัญชนะและความกว้างสูงสุด) — ผู้ใช้กำหนด 0.9
@@ -77,9 +77,20 @@ const PROVINCE_SIZE_SCALE = 0.9;
  * ที่ขนาดปกติ — ค่าเดียวกันทุกป้าย ไม่ขึ้นกับหางอักษร — 18.4% ของป้ายฐาน (34.6 หน่วย · ป้ายจริง 15.0–19.9%)
  * เลือกเป็นค่าที่มากที่สุดที่ป้ายสั้นได้ตัวเลขขนาดเต็มกับพยัญชนะทุกตัวที่ไม่ใช่อักษรหัวสูง (ช ซ ศ ส ฮ หัวสูงกว่าตัวเลขเล็กน้อย
  * ต้องการเส้นฐานที่ 103.3 หน่วยจากขอบบน = ยอดตัวเลขห่างขอบบน 13.5% ของป้ายฐาน, ป้ายจริง 12%)
- * ตั้งคู่กับ PLATE_HEIGHT_SCALE: (H − 162.4) ÷ 188 เช่น 1.0 → 0.136, 1.05 → 0.184, 1.1 → 0.237 (H = หน่วย viewBox, ชุด custom)
+ * ค่านี้เป็นค่าอ้างอิงที่ LINE_GAP_REF_HEIGHT_SCALE (1.05) — ความสูงอื่นคำนวณด้วย lineGapForHeightScale()
  */
-const LINE_GAP_H0 = 0.184;
+const LINE_GAP_REF_H0 = 0.184;
+const LINE_GAP_REF_HEIGHT_SCALE = 1.05;
+
+/**
+ * ระยะระหว่างบรรทัด (สัดส่วนของป้ายฐาน) ที่ความสูงป้าย heightScale: ค่าอ้างอิง + ความสูงที่เพิ่ม/ลดจากป้าย 1.05 ทั้งหมด
+ * (หน่วย viewBox ÷ 188) — ขอบบนถึงเส้นฐานบรรทัดหลักจึงเป็นระยะจริงเดิมทุกความสูง
+ * = (H − 162.4) ÷ 188: 1.0 → 0.1361, 1.05 → 0.184 (ตรงค่าเดิม), 1.1 → 0.2372
+ */
+export function lineGapForHeightScale(heightScale: number): number {
+  const extra = Math.round(PLATE_BASE_H * heightScale) - Math.round(PLATE_BASE_H * LINE_GAP_REF_HEIGHT_SCALE);
+  return extra === 0 ? LINE_GAP_REF_H0 : LINE_GAP_REF_H0 + extra / PLATE_BASE_H;
+}
 /** ขอบด้านในของเส้นขอบใน (หน่วย viewBox) — ระยะจากขอบนอกคงที่ไม่ขึ้นกับความสูงป้าย */
 const FRAME_INNER_EDGE = PLATE_FRAME.innerInset + PLATE_FRAME.innerStroke / 2;
 const SAFE_MARGIN_W = 0.048;
@@ -100,7 +111,7 @@ const PROVINCE_CONSONANT_HEIGHT_H0 = 0.1535;
 export function makePlateLayout(
   heightScale: number = PLATE_HEIGHT_SCALE,
   provinceScale: number = PROVINCE_SIZE_SCALE,
-  lineGapH0: number = LINE_GAP_H0,
+  lineGapH0: number = lineGapForHeightScale(heightScale),
 ) {
   const H0 = PLATE_BASE_H;
   const H = Math.round(H0 * heightScale);
@@ -143,7 +154,7 @@ export function makePlateLayout(
      * ใช้เป็นค่าอ้างอิงของระยะขอบบน (ยอดตัวเลข = 53.5 − 41.5 = 12% ของป้ายฐานจากขอบนอก) — ตำแหน่งจริงของบรรทัดหลัก
      * ตาม lineGapH (ดู mainBaselineFor) */
     mainBaselineH: h(0.535),
-    /** ระยะระหว่างบรรทัด: เส้นฐานบรรทัดหลัก → ยอดพยัญชนะชื่อจังหวัดขนาดปกติ (LINE_GAP_H0) — ค่าเดียวทุกป้าย */
+    /** ระยะระหว่างบรรทัด: เส้นฐานบรรทัดหลัก → ยอดพยัญชนะชื่อจังหวัดขนาดปกติ (lineGapForHeightScale) — ค่าเดียวทุกป้าย */
     lineGapH: h(lineGapH0),
     /** กึ่งกลางกลุ่มหน้า (เลขหน้า+อักษร) — วัด 9/13 มัธยฐาน 24% W (อีก 4 แผ่นเป็นภาพร้านค้าที่อาจเป็นภาพจัดทำ) */
     leftGroupCenterW: 0.24,
@@ -648,6 +659,24 @@ export interface PlateLayout {
   provinceLine: PlateTextLine | null;
   /** หมึกบนสุดของบรรทัดจังหวัด รวมสระบน/วรรณยุกต์ (null ถ้าไม่มีบรรทัดนี้) */
   provinceTop: number | null;
+}
+
+/** ภาพป้ายย่อ (PlateImage compactWidth): ซ่อนบรรทัดจังหวัดถ้าพยัญชนะจังหวัดจะสูงต่ำกว่าค่านี้ (px บนจอ) — ผู้ใช้กำหนด ~9px */
+export const COMPACT_MIN_PROVINCE_PX = 9;
+
+/**
+ * ภาพป้ายย่อที่กว้าง widthPx บนจอ: ชื่อจังหวัดยังแสดงได้ไหม (พยัญชนะสูง ≥ COMPACT_MIN_PROVINCE_PX)
+ * ใช้ขนาดจริงของชื่อนั้นจาก buildPlateLayout (ชื่อยาวถูกย่อตามความกว้าง จึงเตี้ยกว่าชื่อสั้น)
+ */
+export function compactProvinceVisible(
+  input: PlateLayoutInput,
+  widthPx: number,
+  font: PlateFontProfile = PLATE_FONT_PROFILE,
+  L: PlateLayoutConfig = PLATE_LAYOUT,
+): boolean {
+  const line = buildPlateLayout(input, font, L).provinceLine;
+  if (line === null) return false;
+  return line.fontSize * font.province.consonantEm * (widthPx / PLATE_W) >= COMPACT_MIN_PROVINCE_PX;
 }
 
 export function buildPlateAriaLabel(

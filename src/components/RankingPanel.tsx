@@ -1,12 +1,22 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { generateTopCandidates } from '../engine/ranking';
 import type { RankingCandidate, TailLength } from '../engine/ranking';
 import { badgeClass, badgeIcon, popularStars } from './ResultCard';
 import { ModeDetailPanel } from './ModeDetailPanel';
 import { ComparisonResultCard } from './ComparisonResultCard';
 import { PlateImage } from './PlateImage';
+import { PlateWithTags } from './PlateWithTags';
 import { plateCopyText } from './plateCopy';
-import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
+import {
+  buildPlateAriaLabel,
+  PLATE_H,
+  PLATE_W,
+  plateProvinceNote,
+  plateVariantFor,
+  resolvePlateProvinceLabel,
+} from './plateLayout';
+import { LazyMount } from './LazyMount';
 import { comparePlates } from '../engine/comparePlates';
 import type { ComparisonResult } from '../engine/comparePlates';
 import type { PlateInput } from '../engine';
@@ -44,6 +54,90 @@ export type RowLimit = (typeof ROW_LIMIT_OPTIONS)[number];
 const FAVORITE_SLOT_LABELS = ['อันดับ 1 (ชอบสุด)', 'อันดับ 2', 'อันดับ 3', 'อันดับ 4'];
 
 type ResultsByLength = Record<TailLength, RankingCandidate[]>;
+
+/** ความกว้างภาพป้ายย่อในแถวตาราง (px บนจอ) — ผู้ใช้กำหนด ~160–190px */
+export const RANKING_ROW_PLATE_WIDTH = 176;
+/**
+ * ความกว้างพื้นที่ผลลัพธ์ขั้นต่ำ (rem) ที่ใช้ตารางได้โดยไม่เลื่อนแนวนอน — แคบกว่านี้ใช้รายการการ์ด
+ * วัดเป็น rem (ไม่ใช่ px) เพราะตารางกว้างตามขนาดตัวอักษร: ตัวอักษร 175% ใช้การ์ดทุกขนาดจอ (กรอบแอปกว้างสุด 880px)
+ * วัดจากตารางจริง (ภาพป้าย 176px, 30 แถว, รวมเลขประมูล): ตารางกว้างน้อยสุด 810px + ขอบกรอบ = 51.6rem ที่ตัวอักษร 100%
+ * (49.1rem ที่ 112.5% แต่กรอบ 840px = 46.7rem จึงเป็นการ์ด) → 52rem: ตัวอักษร 100% ใช้ตารางเมื่อแผงกว้าง ≥ 832px
+ * (จอ ≥ ~872px) จอ 768px และตัวอักษร ≥ 112.5% ใช้การ์ด
+ */
+export const RANKING_TABLE_MIN_REM = 52;
+
+export type RankingLayout = 'table' | 'cards';
+
+/** เลือกตาราง/การ์ดจากความกว้างพื้นที่ผลลัพธ์ (px) และขนาดตัวอักษรราก (px) */
+export function chooseRankingLayout(containerPx: number, rootFontPx: number): RankingLayout {
+  return containerPx / rootFontPx >= RANKING_TABLE_MIN_REM ? 'table' : 'cards';
+}
+
+function rootFontPx(): number {
+  return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+}
+
+/**
+ * ตาราง/การ์ดตามความกว้างจริงของแผง (ResizeObserver) และขนาดตัวอักษร (style ของ <html> ที่ useFontScale ตั้ง)
+ * วัดใน useLayoutEffect จึงสลับก่อน paint แรก · ค่าตั้งต้นประมาณจากความกว้างหน้าต่าง (กรอบแอป 880px ลบระยะขอบ)
+ * ไม่มี DOM (SSR/เทสต์) = ตาราง
+ */
+function useRankingLayout(ref: RefObject<HTMLElement>, forced?: RankingLayout): RankingLayout {
+  const [layout, setLayout] = useState<RankingLayout>(() =>
+    forced ?? (typeof window === 'undefined' ? 'table' : chooseRankingLayout(Math.min(window.innerWidth, 880) - 40, rootFontPx())),
+  );
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (forced || !el) return;
+    const update = () => setLayout(chooseRankingLayout(el.clientWidth, rootFontPx()));
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    const mo = new MutationObserver(update);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, [ref, forced]);
+  return forced ?? layout;
+}
+
+/**
+ * ที่ว่างแทนภาพป้ายที่ยังไม่เข้าใกล้จอ (LazyMount) — ขนาดเท่าภาพจริง และ aria-label เหมือนภาพจริง
+ * (เลขทะเบียน/คะแนนในแถวมาจากข้อมูลเดิม ไม่ได้รอภาพ)
+ */
+function PlatePlaceholder({ c, widthPx, extraHeight = 0 }: { c: RankingCandidate; widthPx?: number; extraHeight?: number }) {
+  return (
+    <div
+      className="plate-placeholder"
+      role="img"
+      aria-label={buildPlateAriaLabel(formatPlateText(c.input), resolvePlateProvinceLabel(c.input), plateVariantFor(c.auction))}
+      style={{
+        width: widthPx !== undefined ? `${widthPx}px` : '100%',
+        aspectRatio: `${PLATE_W} / ${PLATE_H}`,
+        marginBottom: extraHeight ? `${extraHeight}px` : undefined,
+      }}
+    />
+  );
+}
+
+/** Badge (คู่เลข / ผลรวม / เลขโปรด) ของหนึ่งทะเบียน — ใช้ทั้งแถวตารางและการ์ด */
+function CandidateBadges({ c }: { c: RankingCandidate }) {
+  return (
+    <div className="badges-cell">
+      {c.badges.map((badge, bi) => (
+        <span key={bi} className={badgeClass(badge.type)}>
+          {badgeIcon(badge.type)} {badge.text}
+        </span>
+      ))}
+      {c.matchedFavoriteDigits.length > 0 && (
+        <span className="favorite-badge">♥ เลขโปรด: {c.matchedFavoriteDigits.join(', ')}</span>
+      )}
+    </div>
+  );
+}
 
 /** จำนวนช่อง "เลขที่เล็งไว้" — ผู้ใช้กรอกเลขท้ายที่อยากได้เองแล้วให้ระบบจัดอันดับเฉพาะชุดนี้ */
 export const TARGET_SLOT_COUNT = 10;
@@ -188,6 +282,8 @@ interface RankingPanelProps {
   onViewFiveElement?: (input: DetailModeInput, returnContext?: ReturnContext) => void;
   onViewAyatana6?: (input: DetailModeInput, returnContext?: ReturnContext) => void;
   onViewBirthdayCompat?: (input: DetailModeInput, returnContext?: ReturnContext) => void;
+  /** บังคับรูปแบบผลลัพธ์ (เทสต์) — ไม่ส่ง = เลือกตามความกว้างจริง (useRankingLayout) */
+  layout?: RankingLayout;
   /** มีค่าเฉพาะตอนกลับมาจากหน้าธาตุจีน/อายตนะ6/เช็ควันเกิดที่มาจากหน้านี้เดิม — ใช้ prefill
    * ฟอร์มทั้งหมดตั้งแต่ mount ครั้งแรก (แทน BATCH_FORM_DEFAULTS) แล้วปล่อยให้ resultsByLength
    * useMemo คำนวณ Top N ใหม่ให้เองตามปกติ ไม่ต้อง trigger อะไรเพิ่ม */
@@ -199,7 +295,10 @@ export function RankingPanel({
   onViewAyatana6,
   onViewBirthdayCompat,
   restoreState,
+  layout: forcedLayout,
 }: RankingPanelProps = {}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const resultsLayout = useRankingLayout(panelRef, forcedLayout);
   const fieldDefaults = resolveBatchFormDefaults(restoreState);
   const [frontDigit, setFrontDigit] = useState(fieldDefaults.frontDigit);
   const [letter1, setLetter1] = useState(fieldDefaults.letter1);
@@ -313,7 +412,7 @@ export function RankingPanel({
   );
 
   return (
-    <div className="ranking-panel">
+    <div className="ranking-panel" ref={panelRef}>
       <div className="form-card">
         <div className="form-row">
           <div className="field">
@@ -525,12 +624,80 @@ export function RankingPanel({
             ))}
           </div>
 
-          <div className="ranking-table-wrap">
-            {!resultsByLength ? (
+          {resultsByLength && activeCandidates.length > 0 && resultsLayout === 'table' && (
+            <p className="ranking-plate-note">ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง</p>
+          )}
+          {!resultsByLength ? (
+            <div className="ranking-table-wrap">
               <div className="ranking-empty">กรอกข้อมูลด้านบนให้ครบก่อนจึงจะจัดอันดับได้</div>
-            ) : activeCandidates.length === 0 ? (
+            </div>
+          ) : activeCandidates.length === 0 ? (
+            <div className="ranking-table-wrap">
               <div className="ranking-empty">ไม่พบเลขท้ายที่ผ่านเกณฑ์ในความยาวนี้</div>
-            ) : (
+            </div>
+          ) : resultsLayout === 'cards' ? (
+            // จอแคบ/ตัวอักษรใหญ่: รายการการ์ด ต่อทะเบียน = อันดับ คะแนน Verdict ภาพป้ายขนาดเต็ม (+ปุ่มคัดลอก) แท็ก Badge ปุ่ม
+            <ol className="ranking-cards">
+              {activeCandidates.map((c, i) => {
+                const isExpanded = expandedTails.has(c.tailDigits);
+                return (
+                  <li key={c.tailDigits} className="ranking-card" data-ranking-row="">
+                    <div className="ranking-card-head">
+                      <span className="ranking-card-rank">อันดับ {i + 1}</span>
+                      <span className="ranking-card-score">
+                        คะแนนรวม <b className="score-cell">{c.finalScore}</b>
+                      </span>
+                      <span className={`verdict ${c.verdict ? 'v-good' : 'v-bad'}`}>
+                        {c.verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
+                      </span>
+                    </div>
+                    {/* 30 แถว: วาดภาพป้ายเฉพาะที่ใกล้จอ (ดู LazyMount) */}
+                    <LazyMount placeholder={<PlatePlaceholder c={c} extraHeight={48} />}>
+                      <PlateWithTags input={c.input} auction={c.auction} popular={c.popular} layout="column" />
+                    </LazyMount>
+                    <CandidateBadges c={c} />
+                    <div className="ranking-card-actions">
+                      <button
+                        type="button"
+                        className={`ranking-expand-btn${isExpanded ? ' open' : ''}`}
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleExpanded(c.tailDigits)}
+                      >
+                        <span className="ranking-expand-icon">▸</span>
+                        <span className="ranking-expand-text">ดูรายละเอียด</span>
+                      </button>
+                      {onViewBirthdayCompat && (
+                        <button
+                          type="button"
+                          className="birthday-compat-link"
+                          onClick={() => onViewBirthdayCompat(c.input, currentReturnContext)}
+                        >
+                          เช็คกับวันเกิด →
+                        </button>
+                      )}
+                    </div>
+                    {isExpanded && (
+                      <div className="ranking-card-detail">
+                        <ModeDetailPanel
+                          input={c.input}
+                          mode1={c.mode1}
+                          mode2={c.mode2}
+                          mode3={c.mode3}
+                          onViewFiveElement={
+                            onViewFiveElement ? (input) => onViewFiveElement(input, currentReturnContext) : undefined
+                          }
+                          onViewAyatana6={
+                            onViewAyatana6 ? (input) => onViewAyatana6(input, currentReturnContext) : undefined
+                          }
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <div className="ranking-table-wrap">
               <table className="ranking-table">
                 <thead>
                   <tr>
@@ -548,10 +715,22 @@ export function RankingPanel({
                     const isExpanded = expandedTails.has(c.tailDigits);
                     return (
                       <Fragment key={c.tailDigits}>
-                        <tr>
+                        <tr data-ranking-row="">
                           <td className="rank">{i + 1}</td>
                           <td className="plate-cell">
-                            {formatPlateText(c.input)}
+                            {/* ภาพป้ายย่อ (ไม่มี caption/ปุ่มคัดลอก — ประโยค "ภาพจำลอง" อยู่เหนือตารางครั้งเดียว)
+                                ข้อความเลขทะเบียนเก็บไว้แบบ sr-only ให้ค้นหา (Ctrl+F) และ screen reader อ่านได้ */}
+                            <LazyMount placeholder={<PlatePlaceholder c={c} widthPx={RANKING_ROW_PLATE_WIDTH} />}>
+                              <PlateImage
+                                frontDigit={c.input.frontDigit}
+                                thaiLetters={c.input.thaiLetters}
+                                tailDigits={c.input.tailDigits}
+                                variant={plateVariantFor(c.auction)}
+                                provinceLabel={resolvePlateProvinceLabel(c.input)}
+                                compactWidth={RANKING_ROW_PLATE_WIDTH}
+                              />
+                            </LazyMount>
+                            <span className="sr-only">{formatPlateText(c.input)}</span>
                           </td>
                           <td>
                             <span className={`verdict ${c.verdict ? 'v-good' : 'v-bad'}`}>
@@ -559,32 +738,17 @@ export function RankingPanel({
                             </span>
                           </td>
                           <td className="ranking-badges-col">
-                            <div className="badges-cell">
-                              {c.badges.map((badge, bi) => (
-                                <span key={bi} className={badgeClass(badge.type)}>
-                                  {badgeIcon(badge.type)} {badge.text}
-                                </span>
-                              ))}
-                              {c.matchedFavoriteDigits.length > 0 && (
-                                <span className="favorite-badge">
-                                  ♥ เลขโปรด: {c.matchedFavoriteDigits.join(', ')}
-                                </span>
-                              )}
-                            </div>
+                            <CandidateBadges c={c} />
                           </td>
                           <td className="score-cell">{c.finalScore}</td>
                           <td>
                             {c.auction.isAuction || c.popular.isPopular ? (
                               <div className="ranking-tags-cell">
                                 {c.auction.isAuction && (
-                                  <span className="auction-tag">
-                                    ● เลขประมูล {c.auction.categories.join(', ')}
-                                  </span>
+                                  <span className="auction-tag">● เลขประมูล {c.auction.categories.join(', ')}</span>
                                 )}
                                 {c.popular.isPopular && (
-                                  <span className="popular-tag">
-                                    เลขสวย {popularStars(c.popular.weight)}
-                                  </span>
+                                  <span className="popular-tag">เลขสวย {popularStars(c.popular.weight)}</span>
                                 )}
                               </div>
                             ) : (
@@ -617,21 +781,23 @@ export function RankingPanel({
                         {isExpanded && (
                           <tr className="ranking-detail-row">
                             <td colSpan={TABLE_COLUMN_COUNT}>
-                              <PlateImage
-                                className="ranking-detail-plate"
-                                frontDigit={c.input.frontDigit}
-                                thaiLetters={c.input.thaiLetters}
-                                tailDigits={c.input.tailDigits}
-                                variant={plateVariantFor(c.auction)}
-                                provinceLabel={resolvePlateProvinceLabel(c.input)}
-                                copyText={plateCopyText(c.input)}
-                                provinceNote={plateProvinceNote(c.input)}
-                              />
                               <ModeDetailPanel
                                 input={c.input}
                                 mode1={c.mode1}
                                 mode2={c.mode2}
                                 mode3={c.mode3}
+                                leading={
+                                  <PlateImage
+                                    className="ranking-detail-plate"
+                                    frontDigit={c.input.frontDigit}
+                                    thaiLetters={c.input.thaiLetters}
+                                    tailDigits={c.input.tailDigits}
+                                    variant={plateVariantFor(c.auction)}
+                                    provinceLabel={resolvePlateProvinceLabel(c.input)}
+                                    copyText={plateCopyText(c.input)}
+                                    provinceNote={plateProvinceNote(c.input)}
+                                  />
+                                }
                                 onViewFiveElement={
                                   onViewFiveElement
                                     ? (input) => onViewFiveElement(input, currentReturnContext)
@@ -651,8 +817,8 @@ export function RankingPanel({
                   })}
                 </tbody>
               </table>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
     </div>

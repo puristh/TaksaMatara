@@ -686,6 +686,8 @@ details[open] summary::before {
 
 .nav-tabs {
   display: flex;
+  /* ตัวอักษรใหญ่ (175%) บนจอแคบ: ปุ่มเมนูขึ้นบรรทัดใหม่แทนดันหน้าให้เลื่อนแนวนอน (เดิมล้น 121px ที่ 390px) */
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 0;
 }
@@ -774,11 +776,14 @@ table.ranking-table {
   color: var(--ink-soft);
   width: 3ch;
 }
+/* เลขทะเบียน = ภาพป้ายย่อ (PlateImage compactWidth) + ข้อความ sr-only */
 .ranking-table .plate-cell {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
+  width: 1%;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.ranking-table .plate-cell .plate-figure--compact {
+  width: var(--plate-max-width);
 }
 .ranking-table .score-cell {
   font-family: 'IBM Plex Mono', monospace;
@@ -812,6 +817,14 @@ table.ranking-table {
 .ranking-tags-cell .popular-tag {
   margin-left: 0;
   white-space: nowrap;
+}
+/* แท็กเลขประมูลยาว ("● เลขประมูล เลขคู่/เลขเบิ้ล") ตัดบรรทัดในตาราง ไม่ดันตารางให้กว้างเกินกรอบ (ภาพป้ายกินที่แทนข้อความ) */
+.ranking-table .ranking-tags-cell {
+  min-width: 7rem;
+  max-width: 8.5rem;
+}
+.ranking-table .ranking-tags-cell .auction-tag {
+  white-space: normal;
 }
 
 /* คอลัมน์ action: กว้างเท่าเนื้อหา ไม่ถูกบีบ และติดขอบขวาตอนตารางกว้างกว่ากรอบ */
@@ -887,6 +900,111 @@ table.ranking-table {
 }
 .ranking-detail-row .detail-grid {
   margin-top: 6px;
+}
+/* แถวขยาย: ภาพป้ายขนาดเต็มเป็นช่องแรกของตาราง 2×2 (ป้าย + 3 Mode) ไม่เหลือที่ว่างขวาของภาพ */
+@media (min-width: 601px) {
+  .detail-grid--with-leading {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.detail-leading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+.detail-leading .ranking-detail-plate {
+  margin: 0;
+}
+
+/* ประโยคเดียวเหนือตาราง แทน caption ของภาพป้ายย่อทุกแถว */
+.ranking-plate-note {
+  margin: 0 0 8px;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+/* จอแคบ/ตัวอักษรใหญ่: รายการการ์ดแทนตาราง (RankingPanel → chooseRankingLayout) */
+.ranking-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ranking-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  min-width: 0;
+  --plate-max-width: 340px;
+}
+.ranking-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  margin-bottom: 8px;
+}
+.ranking-card-rank {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 700;
+}
+.ranking-card-score {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+.ranking-card-score .score-cell {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  color: var(--navy);
+}
+.ranking-card .badges-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ranking-card .badges-cell .badge,
+.ranking-card .badges-cell .favorite-badge {
+  white-space: normal;
+}
+.ranking-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 6px;
+}
+/* พื้นที่กด ≥ 44px บนจอแคบ */
+.ranking-card-actions .ranking-expand-btn,
+.ranking-card-actions .birthday-compat-link {
+  min-height: 44px;
+  font-size: 0.8125rem;
+}
+.ranking-card-detail .detail-grid {
+  margin-top: 6px;
+}
+
+/* ที่ว่างแทนภาพป้ายที่ยังไม่เข้าใกล้จอ (LazyMount ใน Batch) — ขนาดเท่าภาพจริง */
+.plate-placeholder {
+  max-width: var(--plate-max-width, 352px);
+  border-radius: 3.18% / 7.1%;
+  background: color-mix(in srgb, var(--line) 45%, transparent);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .landing {

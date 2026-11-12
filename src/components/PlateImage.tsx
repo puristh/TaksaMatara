@@ -1,7 +1,16 @@
 import { memo, useEffect, useId, useMemo, useRef, useState } from 'react';
+import type React from 'react';
 import type { PlateInput } from '../engine/types';
 import { PLATE_FONT_STYLE, PLATE_IMAGE_DEFAULT_PROVINCE } from '../config/featureFlags';
-import { buildPlateLayout, PLATE_H, PLATE_LAYOUT, PLATE_W, resolvePlateFontProfile } from './plateLayout';
+import {
+  buildPlateAriaLabel,
+  buildPlateLayout,
+  compactProvinceVisible,
+  PLATE_H,
+  PLATE_LAYOUT,
+  PLATE_W,
+  resolvePlateFontProfile,
+} from './plateLayout';
 import { usePlateFontStatus } from './plateFontLoader';
 import type { PlateTextLine, PlateVariant } from './plateLayout';
 import { browserCopyEnv, copyPlateText, copyStatusMessage } from './plateCopy';
@@ -16,6 +25,12 @@ interface PlateImageProps extends Pick<PlateInput, 'frontDigit' | 'thaiLetters' 
   /** ข้อความเล็กต่อท้าย "ภาพจำลอง ไม่ใช่ป้ายจริง" เช่น "จังหวัดในภาพ: ค่าเริ่มต้น" (ดู plateProvinceNote) */
   provinceNote?: string | null;
   className?: string;
+  /**
+   * ภาพป้ายย่อในแถวตาราง (เช่น Batch ranking): ความกว้างบนจอ (px) — ไม่แสดง caption ("ภาพจำลอง ไม่ใช่ป้ายจริง")
+   * และปุ่มคัดลอก (หน้าที่ใช้ต้องแสดงข้อความ "ภาพจำลอง" เองหนึ่งครั้ง) · ซ่อนบรรทัดจังหวัดถ้าพยัญชนะจะต่ำกว่า
+   * COMPACT_MIN_PROVINCE_PX · aria-label เหมือนภาพขนาดปกติ (มีชื่อจังหวัดเสมอ)
+   */
+  compactWidth?: number;
 }
 
 /** เวลาที่ข้อความ "คัดลอกแล้ว" ค้างอยู่ (ms) — ข้อความคัดลอกไม่สำเร็จค้างไว้จนกดใหม่ */
@@ -118,6 +133,7 @@ export const PlateImage = memo(function PlateImage({
   copyText,
   provinceNote,
   className,
+  compactWidth,
 }: PlateImageProps) {
   const rawId = useId();
   const id = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
@@ -127,17 +143,16 @@ export const PlateImage = memo(function PlateImage({
   // ฟอนต์ custom โหลดไม่สำเร็จ → ใช้ชุด noto ทั้งฟอนต์และตารางเลย์เอาต์ (ไม่ล้นกรอบเพราะคำนวณจากฟอนต์ที่แสดงจริง)
   const fontStatus = usePlateFontStatus(PLATE_FONT_STYLE === 'custom');
   const font = resolvePlateFontProfile(PLATE_FONT_STYLE, fontStatus);
-  const layout = useMemo(
-    () =>
-      buildPlateLayout({
-        frontDigit,
-        thaiLetters: [letter1, letter2],
-        tailDigits,
-        variant,
-        provinceLabel: resolvedProvince,
-      }, font),
-    [frontDigit, letter1, letter2, tailDigits, variant, resolvedProvince, font],
-  );
+  const layout = useMemo(() => {
+    const input = { frontDigit, thaiLetters: [letter1, letter2] as [string, string], tailDigits, variant, provinceLabel: resolvedProvince };
+    if (compactWidth === undefined || compactProvinceVisible(input, compactWidth, font)) return buildPlateLayout(input, font);
+    return buildPlateLayout({ ...input, provinceLabel: null }, font);
+  }, [frontDigit, letter1, letter2, tailDigits, variant, resolvedProvince, font, compactWidth]);
+  // ภาพย่อที่ซ่อนบรรทัดจังหวัด: aria-label ยังบอกจังหวัดเหมือนภาพขนาดปกติ
+  const ariaLabel =
+    layout.provinceLine === null && resolvedProvince?.trim()
+      ? buildPlateAriaLabel(layout.plateText, resolvedProvince.trim(), variant)
+      : layout.ariaLabel;
 
   const textToCopy = copyText ?? layout.plateText;
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
@@ -160,12 +175,15 @@ export const PlateImage = memo(function PlateImage({
   const isAuction = variant === 'auction';
 
   return (
-    <figure className={`plate-figure${className ? ` ${className}` : ''}`}>
+    <figure
+      className={`plate-figure${compactWidth !== undefined ? ' plate-figure--compact' : ''}${className ? ` ${className}` : ''}`}
+      style={compactWidth !== undefined ? ({ '--plate-max-width': `${compactWidth}px` } as React.CSSProperties) : undefined}
+    >
       <svg
         className={`plate-image plate-image--${variant}`}
         viewBox={`0 0 ${PLATE_W} ${PLATE_H}`}
         role="img"
-        aria-label={layout.ariaLabel}
+        aria-label={ariaLabel}
         preserveAspectRatio="xMidYMid meet"
         style={PLATE_CORNER_STYLE}
       >
@@ -253,32 +271,34 @@ export const PlateImage = memo(function PlateImage({
           )}
         </g>
       </svg>
-      <figcaption className="plate-figure__caption">
-        <span className="plate-figure__note">ภาพจำลอง ไม่ใช่ป้ายจริง</span>
-        {provinceNote && <span className="plate-figure__note plate-figure__province-note">· {provinceNote}</span>}
-        <button
-          type="button"
-          className="plate-copy-btn"
-          onClick={onCopy}
-          aria-label={`คัดลอกเลขทะเบียน ${textToCopy}`}
-        >
-          คัดลอก
-        </button>
-        <span
-          className={`plate-copy-status${copyStatus === 'failed' ? ' failed' : ''}`}
-          role="status"
-          aria-live="polite"
-        >
-          {copyStatus === 'failed' ? (
-            <>
-              {copyStatusMessage('failed', '')}
-              <span className="plate-copy-manual">{textToCopy}</span>
-            </>
-          ) : (
-            copyStatusMessage(copyStatus, textToCopy)
-          )}
-        </span>
-      </figcaption>
+      {compactWidth === undefined && (
+        <figcaption className="plate-figure__caption">
+          <span className="plate-figure__note">ภาพจำลอง ไม่ใช่ป้ายจริง</span>
+          {provinceNote && <span className="plate-figure__note plate-figure__province-note">· {provinceNote}</span>}
+          <button
+            type="button"
+            className="plate-copy-btn"
+            onClick={onCopy}
+            aria-label={`คัดลอกเลขทะเบียน ${textToCopy}`}
+          >
+            คัดลอก
+          </button>
+          <span
+            className={`plate-copy-status${copyStatus === 'failed' ? ' failed' : ''}`}
+            role="status"
+            aria-live="polite"
+          >
+            {copyStatus === 'failed' ? (
+              <>
+                {copyStatusMessage('failed', '')}
+                <span className="plate-copy-manual">{textToCopy}</span>
+              </>
+            ) : (
+              copyStatusMessage(copyStatus, textToCopy)
+            )}
+          </span>
+        </figcaption>
+      )}
     </figure>
   );
 });

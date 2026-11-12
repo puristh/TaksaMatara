@@ -56,13 +56,16 @@ describe('ภาพป้ายทุกที่ที่เป็นการ�
     expect(html).toContain('● เลขประมูล');
   });
 
-  it('Batch ตาราง ranking: แถวยังเป็นข้อความ (ภาพย่อทำให้ตารางเลื่อนแนวนอนมากขึ้น) — ภาพเต็มอยู่ในแถวที่กดดูรายละเอียด', () => {
+  // เดิม: แถวยังเป็นข้อความ ไม่มีภาพป้าย (ภาพย่อ 120px ทำให้ตารางเลื่อนแนวนอนมากขึ้น) — ผู้ใช้สั่งให้แสดงภาพป้ายในตาราง:
+  // จอกว้างเป็นภาพย่อ + ข้อความ sr-only, จอแคบเป็นการ์ด (ตรวจละเอียดใน RankingPanel.test.ts)
+  it('Batch ตาราง ranking: ทุกแถวมีภาพป้ายย่อ + ข้อความเลขทะเบียน sr-only — ภาพเต็มอยู่ในแถวที่กดดูรายละเอียด', () => {
     const restoreState: BatchReturnState = {
       frontDigit: '1', letter1: 'ก', letter2: 'ข', excludeAuction: false, excludePopular: false, rowLimit: 10, favoriteDigits: ['', '', ''],
     };
     const html = renderToStaticMarkup(createElement(RankingPanel as (p: { restoreState?: BatchReturnState }) => ReturnType<typeof RankingPanel>, { restoreState }));
-    expect(count(html, /<td class="plate-cell">[^<]+<\/td>/g)).toBe(10);
-    expect(count(html, /<svg class="plate-image /g)).toBe(0);
+    expect(count(html, /<td class="plate-cell"><figure class="plate-figure plate-figure--compact"/g)).toBe(10);
+    expect(count(html, /<svg class="plate-image /g)).toBe(10);
+    expect(count(html, /<span class="sr-only">1 กข \d+<\/span>/g)).toBe(10);
     const detailRow = rankingSource.slice(rankingSource.indexOf('ranking-detail-row'));
     expect(detailRow).toMatch(/<PlateImage[\s\S]*?className="ranking-detail-plate"/);
   });
