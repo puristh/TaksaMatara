@@ -136,7 +136,12 @@ describe('ผลที่แสดง: แถวกะทัดรัด (จอ
     expect(count(html, /<span class="plate-figure__note">ภาพจำลอง ไม่ใช่ป้ายจริง<\/span>/g)).toBe(2);
     expect(count(html, /<svg class="plate-image /g)).toBe(cands.length + 2);
     expect(count(html, /class="badges-cell"/g)).toBe(2);
-    expect(count(html, /<summary>ดูรายละเอียดการคำนวณ<\/summary>/g)).toBe(2);
+    // เดิม: นับ <summary>ดูรายละเอียดการคำนวณ</summary> = 2 — ผู้ใช้สั่งให้จอแคบเปิดกล่องวิเคราะห์ 3 กล่องไว้เลย (ไม่พับ)
+    // จึงต้องไม่มี summary นี้ และนับกล่อง 3 Mode ที่เปิดอยู่แทน
+    expect(html).not.toContain('ดูรายละเอียดการคำนวณ');
+    expect(html).not.toContain('<details');
+    expect(count(html, /class="detail-grid"/g)).toBe(2);
+    expect(count(html, /class="detail-box"/g)).toBe(6);
     expect(count(html, /เช็คกับวันเกิด →/g)).toBe(2);
     const opened = [cands[0], cands[3]];
     expect(count(html, /class="auction-tag"/g)).toBe(opened.filter((c) => c.auction.isAuction).length);
@@ -196,8 +201,10 @@ describe('ผลที่แสดง: โหมด "เลขที่เล็
     const html = render('compact', ['target-1', 'target-3'], { targetTails: tails });
     expect(plateExpanded(html)).toEqual(ranked.map((r) => r.slotIndex === 1 || r.slotIndex === 3));
     expect(count(html, /class="plate-copy-btn"/g)).toBe(2);
-    expect(count(html, /<summary>ดูรายละเอียดการคำนวณ<\/summary>/g)).toBe(2);
+    // เดิม: นับ <summary>ดูรายละเอียดการคำนวณ</summary> = 2 — จอแคบเปิด 3 กล่องไว้เลยแล้ว (ทั้งสองโหมด) จึงต้องไม่มี summary
+    expect(html).not.toContain('ดูรายละเอียดการคำนวณ');
     expect(count(html, /class="detail-grid"/g)).toBe(2);
+    expect(count(html, /class="detail-box"/g)).toBe(6);
     expectControlsResolve(html);
   });
 });

@@ -184,3 +184,26 @@ describe('จุดสลับตาราง/แถวกะทัดรัด
     }
   });
 });
+
+describe('จอแคบ: ส่วนที่ขยายเปิดกล่องวิเคราะห์ 3 กล่องไว้เลย ทั้งสองโหมด', () => {
+  const normal = generateTopCandidates(FRONT, LETTERS, 2, false, false, 30, [null, null, null, null]);
+  const pick = [normal[0], normal[4]];
+  const target = rankTargetTails(FRONT, LETTERS, [pick[0].tailDigits, pick[1].tailDigits, '', '', '', '', '', '', '', '']);
+  const cases: [string, string][] = [
+    ['โหมดปกติ', render('compact', {}, pick.map((c) => c.tailDigits))],
+    ['โหมดเลขที่เล็งไว้', render('compact', { targetTails: target.map((r) => r.input.tailDigits).concat(Array(8).fill('')) }, ['target-0', 'target-1'])],
+  ];
+  for (const [name, html] of cases) {
+    it(`${name}: 2 แถวที่ขยายมีกล่อง 3 Mode เปิดอยู่ (ไม่มี <details>/"ดูรายละเอียดการคำนวณ") และลิงก์เช็ควันเกิดอยู่หลังกล่อง`, () => {
+      expect(html).not.toContain('<details');
+      expect(html).not.toContain('ดูรายละเอียดการคำนวณ');
+      const opened = rowsOf(html, 'compact').filter((r) => r.includes('is-open'));
+      expect(opened).toHaveLength(2);
+      for (const r of opened) {
+        expect(r.match(/class="detail-box"/g)).toHaveLength(3);
+        expect(r.indexOf('class="badges-cell"')).toBeLessThan(r.indexOf('class="detail-grid"'));
+        expect(r.indexOf('class="detail-grid"')).toBeLessThan(r.indexOf('เช็คกับวันเกิด →'));
+      }
+    });
+  }
+});

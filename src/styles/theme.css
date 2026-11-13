@@ -13,9 +13,8 @@
   --good-strong-bg: #e4f3ec;
   --good: #2e8b6e;
   --good-bg: #eaf6f0;
-  --mid: #b8862b;
-  /* --mid เป็นตัวอักษรบน --mid-bg ได้แค่ 2.89:1 (โหมดสว่าง) — ผลลัพธ์ #batch ใช้ค่านี้แทน (5.03:1) ดู .ranking-panel */
-  --mid-text: #8a5f12;
+  /* ทองเข้ม: เป็นตัวอักษรบน --mid-bg ได้ 5.03:1 (เดิม #b8862b ได้แค่ 2.89:1) — ใช้ทั้งแอป */
+  --mid: #8a5f12;
   --mid-bg: #fbf1de;
   --bad: #b4442e;
   --bad-bg: #fbeae5;
@@ -59,7 +58,6 @@
     --good: #4fce9c;
     --good-bg: #17281f;
     --mid: #e3b462;
-    --mid-text: #e3b462;
     --mid-bg: #2e2717;
     --bad: #f2907a;
     --bad-bg: #301e1b;
@@ -86,7 +84,6 @@
   --good: #4fce9c;
   --good-bg: #17281f;
   --mid: #e3b462;
-  --mid-text: #e3b462;
   --mid-bg: #2e2717;
   --bad: #f2907a;
   --bad-bg: #301e1b;
@@ -1069,11 +1066,6 @@ table.ranking-table {
 .ranking-row--bronze .rank-row-label {
   color: var(--ink);
 }
-/* badge/แท็ก "ปานกลาง" (--mid บน --mid-bg) ในผลลัพธ์ #batch: ใช้ --mid-text ให้ contrast ≥ 4.5:1 ทั้งสองธีม
-   (หน้าอื่นยังใช้ --mid เดิม — นอกขอบเขตงานนี้) */
-.ranking-panel {
-  --mid: var(--mid-text);
-}
 .rank-row-plate {
   grid-area: plate;
   min-width: 0;
@@ -1198,17 +1190,16 @@ table.ranking-table {
 .rank-row-detail-body .badges-cell .favorite-badge {
   white-space: normal;
 }
-.rank-row-calc > summary {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: var(--navy);
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
 .rank-row-calc .detail-grid {
   margin-top: 4px;
+  /* แถวกะทัดรัดใช้ได้ตั้งแต่จอแคบถึงตัวอักษร 175% บนจอกว้าง — กล่องเรียงตามที่ว่างจริง (ขั้นต่ำ 14rem/กล่อง)
+     flex-wrap: ถ้าเหลือกล่องเดียวในแถวล่าง กล่องนั้นยืดเต็มความกว้าง ไม่เหลือช่องว่าง */
+  display: flex;
+  flex-wrap: wrap;
+}
+.rank-row-calc .detail-grid > .detail-box {
+  flex: 1 1 14rem;
+  min-width: 0;
 }
 .rank-row-detail-actions .birthday-compat-link {
   min-height: 44px;
