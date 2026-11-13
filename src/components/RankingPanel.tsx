@@ -59,13 +59,14 @@ export const RANKING_ROW_PLATE_WIDTH_NARROW = 124;
 export const RANKING_NARROW_MAX_PX = 480;
 /**
  * ความกว้างพื้นที่ผลลัพธ์ขั้นต่ำ (rem) ที่ใช้ตารางได้โดยไม่เลื่อนแนวนอน — แคบกว่านี้ใช้แถวกะทัดรัด
- * วัดเป็น rem (ไม่ใช่ px) เพราะตารางกว้างตามขนาดตัวอักษร: ตัวอักษร ≥ 112.5% ใช้แถวกะทัดรัดทุกขนาดจอ
- * วัดจากตารางจริง (ป้ายเล็ก 150px, อันดับ/verdict/คะแนนแบบเด่น, type scale #batch: badge 15px ไม่ตัดบรรทัด,
- * 30 แถว รวมเลขประมูล + เลขโปรด): ตารางกว้างน้อยสุด 940px + ขอบกรอบ 16px = 59.75rem → 60rem (960px)
- * เดิม 56.5rem (~961px ที่ตัวอักษร 100%) — ตัวอักษรรองใหญ่ขึ้น ผู้ใช้ให้ขยับจุดสลับแทนการย่อเนื้อหา:
- * ตัวอักษร 100% ใช้ตารางที่จอ ≥ ~1017px (พื้นที่ผลลัพธ์แบบตารางกว้างได้ถึง RANKING_WIDE_MAX_PX — ดู .ranking-wide ใน theme.css)
+ * วัดเป็น rem (ไม่ใช่ px) เพราะตารางกว้างตามขนาดตัวอักษร: ตัวอักษร 175% ใช้แถวกะทัดรัดทุกขนาดจอ (กรอบแอปกว้างสุด 880px)
+ * วัดจากตารางจริง (ป้ายเล็ก 150px, ป้ายอันดับ/verdict 80%, ข้อความขนาดเดียวกับส่วนบนของหน้า, badge ไม่ตัดบรรทัด,
+ * 30 แถว รวมเลขประมูล + เลขโปรด 4 ตัว, หมวดอักษร/เลขหน้าหลายแบบ, ชื่อกลุ่มเลขประมูลไม่ตัดกลางคำ): ตารางกว้างน้อยสุด 871px + ขอบกรอบ 16px = 55.4rem
+ * → 56.5rem (904px, ~961px ที่ตัวอักษร 100%) จุดสลับเดิมก่อน type scale — รอบ type scale (ข้อความ 15px) ตารางต้องการ 940px
+ * จึงเคยขยับเป็น 60rem; ข้อความกลับขนาดเดิมแล้วตารางแคบลงพอ จึงกลับมาที่ 56.5rem (ไม่ได้ย่อเนื้อหาให้พอดี)
+ * พื้นที่ผลลัพธ์แบบตารางกว้างได้ถึง RANKING_WIDE_MAX_PX (ดู .ranking-wide ใน theme.css)
  */
-export const RANKING_TABLE_MIN_REM = 60;
+export const RANKING_TABLE_MIN_REM = 56.5;
 
 /** 'table' = ตาราง (จอกว้าง) · 'compact' = แถวกะทัดรัด (จอแคบ/ตัวอักษรใหญ่) */
 export type RankingLayout = 'table' | 'compact';
@@ -775,7 +776,16 @@ export function RankingPanel({
                               {c.auction.isAuction || c.popular.isPopular ? (
                                 <div className="ranking-tags-cell">
                                   {c.auction.isAuction && (
-                                    <span className="auction-tag">● เลขประมูล {c.auction.categories.join(', ')}</span>
+                                    <span className="auction-tag">
+                                      {/* "● เลขประมูล" และชื่อกลุ่มแต่ละชื่อไม่ตัดกลางคำ (เช่น "เลขคู่/เลขเบิ้ล") — ตัดบรรทัดได้เฉพาะระหว่างส่วน */}
+                                      <span className="auction-tag__cat">● เลขประมูล</span>{' '}
+                                      {c.auction.categories.map((cat, ci) => (
+                                        <Fragment key={cat}>
+                                          {ci > 0 && ', '}
+                                          <span className="auction-tag__cat">{cat}</span>
+                                        </Fragment>
+                                      ))}
+                                    </span>
                                   )}
                                   {c.popular.isPopular && (
                                     <span className="popular-tag">เลขสวย {popularStars(c.popular.weight)}</span>

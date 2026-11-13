@@ -1057,14 +1057,14 @@ table.ranking-table {
   font-size: 0.8125rem;
   padding: 0 4px;
 }
-/* จอแคบ: อันดับ/verdict/คะแนนย่อลงเล็กน้อย (ยังเด่น: ป้ายอันดับ 40px, pill ทึบ 15px ตัวหนา, คะแนน 24px) */
+/* จอแคบ: อันดับ/verdict ย่อลง (80% ของรอบก่อน: ป้ายอันดับ 40→32px ตัวเลข 22→17.6px, pill 17→13.6px), คะแนน 24px คงเดิม */
 .rank-row .rank-badge {
-  width: 2.5rem;
-  height: 2.5rem;
-  font-size: 1.375rem;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.1rem;
 }
 .rank-row .verdict-pill {
-  font-size: 0.9375rem;
+  font-size: 0.85rem;
 }
 .rank-row .score-figure__value {
   font-size: 1.5rem;
@@ -1117,12 +1117,12 @@ table.ranking-table {
     align-items: flex-start;
   }
   .rank-row .rank-badge {
-    width: 3.375rem;
-    height: 3.375rem;
-    font-size: 1.75rem;
+    width: 2.7rem;
+    height: 2.7rem;
+    font-size: 1.4rem;
   }
   .rank-row .verdict-pill {
-    font-size: 1.125rem;
+    font-size: 0.9rem;
   }
   .rank-row .score-figure__value {
     font-size: 2.125rem;
@@ -1180,13 +1180,13 @@ table.ranking-table {
 .rank-badge {
   display: inline-grid;
   place-items: center;
-  width: 3.375rem; /* 54px */
-  height: 3.375rem;
+  width: 2.7rem; /* 43.2px = 80% ของ 54px */
+  height: 2.7rem;
   flex: none;
   border-radius: 50%;
   border: 2px solid transparent;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 1.75rem; /* 28px */
+  font-size: 1.4rem; /* 22.4px = 80% ของ 28px */
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -1226,10 +1226,14 @@ table.ranking-table {
   gap: 0.35em;
   padding: 0.35em 0.9em 0.35em 0.75em;
   border-radius: 999px;
-  font-size: 1.125rem; /* 18px */
+  font-size: 1.125rem; /* 18px (หน้า #single) — #batch ย่อเหลือ 80% ดูด้านล่าง */
   font-weight: 800;
   line-height: 1.25;
   white-space: nowrap;
+}
+/* #batch ตาราง: 80% ของ 18px = 14.4px (ไอคอน 1.3em / padding em ย่อตาม) — แถวกะทัดรัดดู .rank-row .verdict-pill */
+.ranking-panel .ranking-table .verdict-pill {
+  font-size: 0.9rem;
 }
 .verdict-pill__icon {
   font-size: 1.3em;
@@ -1307,82 +1311,43 @@ table.ranking-table {
 }
 
 /* ---------------------------------------------------------------------
-   หน้า #batch: type scale (ตาราง / แถวกะทัดรัด / ส่วนที่ขยาย / โหมดเลขที่เล็งไว้) — เฉพาะใน .ranking-panel
-   หน้าอื่น (#single, เปรียบเทียบ) ใช้ขนาดเดิม · เทสต์ batchTypeScale.test.ts อ่านค่าจากบล็อกนี้
-   เด่นสุด: verdict / อันดับ / คะแนน (ดูด้านบน) > รอง 15px > ป้ายกำกับ 14px > คำอธิบาย ≥ 13px
+   หน้า #batch: ข้อความทั่วไปในผลลัพธ์ (badge, ลิงก์, ป้ายกำกับ, คำอธิบาย, แท็บ, ส่วนที่ขยาย) ใช้ขนาดเดียวกับ
+   ส่วนบนของหน้า (ฟอร์ม) — ไม่มี type scale แยกใน .ranking-panel (ผู้ใช้: ขนาดต่างกันแล้วรู้สึกแปลก)
+   ที่เด่นคือ verdict / อันดับ / คะแนน (ด้านบน) · เทสต์ batchTypeScale.test.ts ตรวจทั้งสองข้อ
    --------------------------------------------------------------------- */
-.ranking-panel {
-  --batch-secondary: 0.9375rem; /* 15px */
-  --batch-label: 0.875rem; /* 14px */
-  --batch-note: 0.8125rem; /* 13px */
-  --batch-body: 0.875rem; /* 14px — เนื้อหาการคำนวณในส่วนที่ขยาย */
-}
-/* ข้อความรอง: badge, ลิงก์ "ดูรายละเอียด", "เช็คกับวันเกิด →", ป้ายพิเศษ, "พบคู่เสีย", ลิงก์ในส่วนที่ขยาย */
-.ranking-panel .badge,
-.ranking-panel .favorite-badge,
-.ranking-panel .ranking-expand-btn,
-.ranking-panel .ranking-expand-icon,
-.ranking-panel .rank-row-toggle .ranking-expand-btn,
-.ranking-panel .birthday-compat-link,
-.ranking-panel .rank-row-detail-actions .birthday-compat-link,
-.ranking-panel .auction-tag,
-.ranking-panel .popular-tag,
-.ranking-panel .plate-tags .prov,
-.ranking-panel .score-figure__note,
-.ranking-panel .rank-row-calc > summary,
-.ranking-panel .plate-copy-btn,
-.ranking-panel .plate-copy-status,
-.ranking-panel .ayatana6-link,
-.ranking-panel .five-element-link {
-  font-size: var(--batch-secondary);
-}
-/* ป้ายกำกับ: "คะแนนรวม", หัวตาราง, "ช่อง N", แท็บผลลัพธ์ */
+/* ขนาดก่อน type scale (1b7781d) ทั้งหมด ยกเว้นข้อความ 11px: ส่วนบนของหน้าไม่มี 11px (เล็กสุดคือป้ายช่องกรอก "เลขหน้า" 11.5px)
+   จึงใช้ 11.5px เท่าป้ายช่องกรอก — ป้ายกำกับ ("คะแนนรวม", หัวตาราง, "ช่อง N"), คำอธิบาย ("ภาพจำลอง…"), ป้ายพิเศษ,
+   "ดูรายละเอียด"/"เช็คกับวันเกิด →" ในตาราง, ป้ายเล็กในกล่องการคำนวณ */
 .ranking-panel .score-figure__label,
 .ranking-panel .ranking-table th,
 .ranking-panel .rank-row-label,
-.ranking-panel .ranking-tabs button,
-.ranking-panel .target-results-heading,
-.ranking-panel .compare-supplementary-title,
-.ranking-panel .compare-supplementary-note {
-  font-size: var(--batch-label);
-}
-/* คำอธิบาย: "ภาพจำลอง ไม่ใช่ป้ายจริง …", ข้อความว่าง, ป้ายเล็กในกล่องการคำนวณ */
+.ranking-panel .auction-tag,
+.ranking-panel .popular-tag,
 .ranking-panel .plate-figure__note,
-.ranking-panel .ranking-plate-note,
-.ranking-panel .ranking-empty,
+.ranking-panel .ranking-actions-cell .ranking-expand-btn,
+.ranking-panel .ranking-actions-cell .birthday-compat-link,
+.ranking-panel .ranking-expand-icon,
+.ranking-panel summary::before,
 .ranking-panel .detail-box .mode-label,
 .ranking-panel .tag,
-.ranking-panel .dominant-badge {
-  font-size: var(--batch-note);
+.ranking-panel .dominant-badge,
+.ranking-panel .compare-supplementary-title {
+  font-size: 0.71875rem; /* 11.5px = .field label */
 }
-/* เนื้อหาการคำนวณ (ส่วนที่ขยาย) */
-.ranking-panel .detail-box .calc,
-.ranking-panel .detail-box .meaning,
-.ranking-panel .detail-box .explanation,
-.ranking-panel .detail-box .explanation-lead,
-.ranking-panel .pair-meaning-list li,
-.ranking-panel .ayatana6-inline-title,
-.ranking-panel .ayatana6-inline-meaning,
-.ranking-panel .ranking-empty-cell {
-  font-size: var(--batch-body);
+/* ตาราง: "● เลขประมูล" และชื่อกลุ่มไม่ตัดกลางคำ ("เลขคู่/เลขเบิ้ล") — แท็กเป็น inline-block ให้ตัดบรรทัดระหว่างส่วนเท่านั้น */
+.ranking-panel .ranking-table .ranking-tags-cell .auction-tag {
+  display: inline-block;
 }
-/* ตาราง: badge ไม่ตัดบรรทัดกลางข้อความ (เช่น "ผลรวมตัวเลข: ปานกลาง (เลข 3)") — คอลัมน์กว้างตามข้อความ 15px
-   ตารางจึงต้องการพื้นที่มากขึ้น → จุดสลับตาราง/แถวกะทัดรัดขยับขึ้น (RANKING_TABLE_MIN_REM) แทนการย่อตัวอักษร */
+.ranking-panel .auction-tag__cat {
+  white-space: nowrap;
+}
+/* ตาราง: badge ไม่ตัดบรรทัดกลางข้อความ (เช่น "ผลรวมตัวเลข: ปานกลาง (เลข 3)") */
 .ranking-panel .ranking-table .badges-cell {
   max-width: none;
 }
 .ranking-panel .ranking-table .badges-cell .badge,
 .ranking-panel .ranking-table .badges-cell .favorite-badge {
   white-space: nowrap;
-}
-/* verdict ต้องเด่นกว่าข้อความรอง (15px) เสมอ: จอแคบเดิม 15px → 17px (จอกว้างคง 18px) */
-.ranking-panel .rank-row .verdict-pill {
-  font-size: 1.0625rem;
-}
-@container (min-width: calc(150px + 30rem)) {
-  .ranking-panel .rank-row .verdict-pill {
-    font-size: 1.125rem;
-  }
 }
 
 /* ที่ว่างแทนภาพป้ายที่ยังไม่เข้าใกล้จอ (LazyMount ใน Batch) — ขนาดเท่าภาพจริง */

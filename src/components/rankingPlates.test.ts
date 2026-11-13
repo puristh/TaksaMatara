@@ -125,23 +125,23 @@ describe('เลือกตาราง/การ์ดตามความก
   // เดิม: 52rem, กรอบแอป 840px = ตาราง — batch-emphasis ทำให้ตารางกว้างขึ้น (ต้องการ 55.9rem) ผู้ใช้ให้ขยับจุดสลับขึ้นแทนการย่อเนื้อหา
   // พื้นที่ผลลัพธ์แบบตารางกว้างได้ถึง RANKING_WIDE_MAX_PX (1040px) ตามความกว้างจอ − 57px
   // เดิม (batch-emphasis รอบ 2): 56.5rem — จอ 961px = ตาราง, ตัวอักษร 112.5% จอ 1280/1650px = ตาราง
-  // รอบ 3 (type scale #batch): badge 15px ไม่ตัดบรรทัด ตารางต้องการ 59.75rem → 60rem ผู้ใช้ให้ขยับจุดสลับแทนการย่อ
-  // จึงเปลี่ยน: จอ 961px = แถวกะทัดรัด, จอ ≥ ~1017px = ตาราง, ตัวอักษร 112.5% = แถวกะทัดรัดทุกจอ
-  it(`ตารางเมื่อกว้าง ≥ ${RANKING_TABLE_MIN_REM}rem: จอ ≥ ~1017px ตัวอักษร 100% = ตาราง · จอ 961/872/820/768/390px และตัวอักษร ≥ 112.5% = แถวกะทัดรัด`, () => {
+  // รอบ 3 (type scale #batch): badge 15px ไม่ตัดบรรทัด ตารางต้องการ 59.75rem → เคยขยับเป็น 60rem (จอ 961px = แถวกะทัดรัด)
+  // รอบ 4: ข้อความผลลัพธ์กลับขนาดเดียวกับส่วนบนของหน้า + ป้ายอันดับ/verdict 80% → ตารางกว้างสุด 871px + กรอบ = 55.4rem
+  // จึงกลับมา 56.5rem: จอ 961px = ตารางอีกครั้ง (961 ตาราง / 960 แถวกะทัดรัด), ตัวอักษร 112.5% จอ 1280/1650px = ตาราง
+  it(`ตารางเมื่อกว้าง ≥ ${RANKING_TABLE_MIN_REM}rem: จอ ≥ ~961px ตัวอักษร 100% = ตาราง · จอ 960/872/820/768/390px และตัวอักษร ≥ 150% = แถวกะทัดรัด`, () => {
     const area = (vw: number) => Math.max(840 > vw - 40 ? vw - 40 : 840, Math.min(RANKING_WIDE_MAX_PX, vw - 57));
     expect(chooseRankingLayout(area(1650), 16)).toBe('table');
     expect(chooseRankingLayout(area(1280), 16)).toBe('table');
     expect(chooseRankingLayout(area(1024), 16)).toBe('table');
-    expect(chooseRankingLayout(area(1017), 16)).toBe('table');
-    expect(chooseRankingLayout(area(1016), 16)).toBe('compact');
-    expect(chooseRankingLayout(area(961), 16)).toBe('compact');
+    expect(chooseRankingLayout(area(961), 16)).toBe('table');
+    expect(chooseRankingLayout(area(960), 16)).toBe('compact');
     expect(chooseRankingLayout(area(940), 16)).toBe('compact');
     expect(chooseRankingLayout(area(872), 16)).toBe('compact');
     expect(chooseRankingLayout(area(820), 16)).toBe('compact');
     expect(chooseRankingLayout(area(768), 16)).toBe('compact');
     expect(chooseRankingLayout(area(390), 16)).toBe('compact');
-    expect(chooseRankingLayout(area(1650), 18)).toBe('compact'); // ตัวอักษร 112.5%: ตารางต้องการ 1080px > 1040px
-    expect(chooseRankingLayout(area(1280), 18)).toBe('compact');
+    expect(chooseRankingLayout(area(1650), 18)).toBe('table'); // ตัวอักษร 112.5% จอ ≥ ~1074px
+    expect(chooseRankingLayout(area(1280), 18)).toBe('table'); // ตารางต้องการ 1017px ≤ 1040px
     expect(chooseRankingLayout(area(1024), 18)).toBe('compact');
     expect(chooseRankingLayout(area(1650), 24)).toBe('compact'); // 150%
     expect(chooseRankingLayout(area(1650), 28)).toBe('compact'); // 175%
