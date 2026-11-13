@@ -1306,6 +1306,85 @@ table.ranking-table {
   white-space: nowrap;
 }
 
+/* ---------------------------------------------------------------------
+   หน้า #batch: type scale (ตาราง / แถวกะทัดรัด / ส่วนที่ขยาย / โหมดเลขที่เล็งไว้) — เฉพาะใน .ranking-panel
+   หน้าอื่น (#single, เปรียบเทียบ) ใช้ขนาดเดิม · เทสต์ batchTypeScale.test.ts อ่านค่าจากบล็อกนี้
+   เด่นสุด: verdict / อันดับ / คะแนน (ดูด้านบน) > รอง 15px > ป้ายกำกับ 14px > คำอธิบาย ≥ 13px
+   --------------------------------------------------------------------- */
+.ranking-panel {
+  --batch-secondary: 0.9375rem; /* 15px */
+  --batch-label: 0.875rem; /* 14px */
+  --batch-note: 0.8125rem; /* 13px */
+  --batch-body: 0.875rem; /* 14px — เนื้อหาการคำนวณในส่วนที่ขยาย */
+}
+/* ข้อความรอง: badge, ลิงก์ "ดูรายละเอียด", "เช็คกับวันเกิด →", ป้ายพิเศษ, "พบคู่เสีย", ลิงก์ในส่วนที่ขยาย */
+.ranking-panel .badge,
+.ranking-panel .favorite-badge,
+.ranking-panel .ranking-expand-btn,
+.ranking-panel .ranking-expand-icon,
+.ranking-panel .rank-row-toggle .ranking-expand-btn,
+.ranking-panel .birthday-compat-link,
+.ranking-panel .rank-row-detail-actions .birthday-compat-link,
+.ranking-panel .auction-tag,
+.ranking-panel .popular-tag,
+.ranking-panel .plate-tags .prov,
+.ranking-panel .score-figure__note,
+.ranking-panel .rank-row-calc > summary,
+.ranking-panel .plate-copy-btn,
+.ranking-panel .plate-copy-status,
+.ranking-panel .ayatana6-link,
+.ranking-panel .five-element-link {
+  font-size: var(--batch-secondary);
+}
+/* ป้ายกำกับ: "คะแนนรวม", หัวตาราง, "ช่อง N", แท็บผลลัพธ์ */
+.ranking-panel .score-figure__label,
+.ranking-panel .ranking-table th,
+.ranking-panel .rank-row-label,
+.ranking-panel .ranking-tabs button,
+.ranking-panel .target-results-heading,
+.ranking-panel .compare-supplementary-title,
+.ranking-panel .compare-supplementary-note {
+  font-size: var(--batch-label);
+}
+/* คำอธิบาย: "ภาพจำลอง ไม่ใช่ป้ายจริง …", ข้อความว่าง, ป้ายเล็กในกล่องการคำนวณ */
+.ranking-panel .plate-figure__note,
+.ranking-panel .ranking-plate-note,
+.ranking-panel .ranking-empty,
+.ranking-panel .detail-box .mode-label,
+.ranking-panel .tag,
+.ranking-panel .dominant-badge {
+  font-size: var(--batch-note);
+}
+/* เนื้อหาการคำนวณ (ส่วนที่ขยาย) */
+.ranking-panel .detail-box .calc,
+.ranking-panel .detail-box .meaning,
+.ranking-panel .detail-box .explanation,
+.ranking-panel .detail-box .explanation-lead,
+.ranking-panel .pair-meaning-list li,
+.ranking-panel .ayatana6-inline-title,
+.ranking-panel .ayatana6-inline-meaning,
+.ranking-panel .ranking-empty-cell {
+  font-size: var(--batch-body);
+}
+/* ตาราง: badge ไม่ตัดบรรทัดกลางข้อความ (เช่น "ผลรวมตัวเลข: ปานกลาง (เลข 3)") — คอลัมน์กว้างตามข้อความ 15px
+   ตารางจึงต้องการพื้นที่มากขึ้น → จุดสลับตาราง/แถวกะทัดรัดขยับขึ้น (RANKING_TABLE_MIN_REM) แทนการย่อตัวอักษร */
+.ranking-panel .ranking-table .badges-cell {
+  max-width: none;
+}
+.ranking-panel .ranking-table .badges-cell .badge,
+.ranking-panel .ranking-table .badges-cell .favorite-badge {
+  white-space: nowrap;
+}
+/* verdict ต้องเด่นกว่าข้อความรอง (15px) เสมอ: จอแคบเดิม 15px → 17px (จอกว้างคง 18px) */
+.ranking-panel .rank-row .verdict-pill {
+  font-size: 1.0625rem;
+}
+@container (min-width: calc(150px + 30rem)) {
+  .ranking-panel .rank-row .verdict-pill {
+    font-size: 1.125rem;
+  }
+}
+
 /* ที่ว่างแทนภาพป้ายที่ยังไม่เข้าใกล้จอ (LazyMount ใน Batch) — ขนาดเท่าภาพจริง */
 .plate-placeholder {
   max-width: var(--plate-max-width, 352px);
