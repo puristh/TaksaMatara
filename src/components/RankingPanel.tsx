@@ -1,23 +1,16 @@
-import { Fragment, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { generateTopCandidates } from '../engine/ranking';
 import type { RankingCandidate, TailLength } from '../engine/ranking';
 import { badgeClass, badgeIcon, popularStars } from './ResultCard';
 import { ModeDetailPanel } from './ModeDetailPanel';
-import { ComparisonResultCard } from './ComparisonResultCard';
+import { ComparisonSupplementary } from './ComparisonResultCard';
 import { PlateImage } from './PlateImage';
 import { PlateWithTags } from './PlateWithTags';
 import { plateCopyText } from './plateCopy';
-import {
-  buildPlateAriaLabel,
-  PLATE_H,
-  PLATE_W,
-  plateProvinceNote,
-  plateVariantFor,
-  resolvePlateProvinceLabel,
-} from './plateLayout';
-import { LazyMount } from './LazyMount';
+import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
 import { RankBadge, rankTier, ScoreFigure, VerdictPill } from './RankEmphasis';
+import { CompactRankRow, ExpandButton, PlateToggleButton } from './CompactRankRow';
 import { comparePlates } from '../engine/comparePlates';
 import type { ComparisonResult } from '../engine/comparePlates';
 import type { PlateInput } from '../engine';
@@ -56,47 +49,68 @@ const FAVORITE_SLOT_LABELS = ['อันดับ 1 (ชอบสุด)', 'อ�
 
 type ResultsByLength = Record<TailLength, RankingCandidate[]>;
 
-/** ความกว้างภาพป้ายย่อในแถวตาราง (px บนจอ) — ผู้ใช้กำหนด ~160–190px */
-export const RANKING_ROW_PLATE_WIDTH = 176;
 /**
- * ความกว้างพื้นที่ผลลัพธ์ขั้นต่ำ (rem) ที่ใช้ตารางได้โดยไม่เลื่อนแนวนอน — แคบกว่านี้ใช้รายการการ์ด
- * วัดเป็น rem (ไม่ใช่ px) เพราะตารางกว้างตามขนาดตัวอักษร: ตัวอักษร 175% ใช้การ์ดทุกขนาดจอ (กรอบแอปกว้างสุด 880px)
- * วัดจากตารางจริง (ภาพป้าย 176px, ป้ายอันดับ/verdict/คะแนนแบบเด่น, 30 แถว, รวมเลขประมูล): ตารางกว้างน้อยสุด 879px
- * + ขอบกรอบ = 55.9rem ที่ตัวอักษร 100% → 56.5rem (904px) — กว้างกว่ากรอบแอป (840px) จึงให้พื้นที่ผลลัพธ์แบบตาราง
- * กว้างได้ถึง RANKING_WIDE_MAX_PX (ดู .ranking-wide ใน theme.css): ตัวอักษร 100% ใช้ตารางที่จอ ≥ ~961px
- * จอแคบกว่านั้นและตัวอักษร ≥ 150% ใช้การ์ด (ไม่ย่อภาพป้าย/อันดับ/verdict/คะแนนเพื่อให้ตารางพอดี)
+ * ความกว้างป้ายทะเบียนเล็ก (px บนจอ) — ค่าเดียวกันทั้งตาราง (จอกว้าง) และแถวกะทัดรัด เพื่อให้แถวที่ 820px สูง 80–90px
+ * (ผู้ใช้กำหนด ~150px · เดิมตารางใช้ 176px)
+ */
+export const RANKING_ROW_PLATE_WIDTH = 150;
+/** จอแคบ (พื้นที่ผลลัพธ์ < RANKING_NARROW_MAX_PX เช่นจอ 390px): ป้ายเล็ก ~120–130px ให้ป้ายอันดับ + ป้าย + verdict/คะแนน อยู่แถวเดียว */
+export const RANKING_ROW_PLATE_WIDTH_NARROW = 124;
+export const RANKING_NARROW_MAX_PX = 480;
+/**
+ * ความกว้างพื้นที่ผลลัพธ์ขั้นต่ำ (rem) ที่ใช้ตารางได้โดยไม่เลื่อนแนวนอน — แคบกว่านี้ใช้แถวกะทัดรัด
+ * วัดเป็น rem (ไม่ใช่ px) เพราะตารางกว้างตามขนาดตัวอักษร: ตัวอักษร 175% ใช้แถวกะทัดรัดทุกขนาดจอ (กรอบแอปกว้างสุด 880px)
+ * วัดจากตารางจริง (ป้ายอันดับ/verdict/คะแนนแบบเด่น, 30 แถว, รวมเลขประมูล) ตอนป้าย 176px: กว้างน้อยสุด 879px
+ * + ขอบกรอบ = 55.9rem → 56.5rem (904px) — คงจุดสลับเดิมไว้ (~961px ที่ตัวอักษร 100%) ตามที่ผู้ใช้กำหนด แม้ป้ายเล็กลงเป็น 150px
+ * พื้นที่ผลลัพธ์แบบตารางกว้างได้ถึง RANKING_WIDE_MAX_PX (ดู .ranking-wide ใน theme.css)
  */
 export const RANKING_TABLE_MIN_REM = 56.5;
 
-export type RankingLayout = 'table' | 'cards';
+/** 'table' = ตาราง (จอกว้าง) · 'compact' = แถวกะทัดรัด (จอแคบ/ตัวอักษรใหญ่) */
+export type RankingLayout = 'table' | 'compact';
 /** พื้นที่ผลลัพธ์แบบตารางกว้างสุด (px) — ตรงกับ .ranking-wide ใน theme.css */
 export const RANKING_WIDE_MAX_PX = 1040;
 
-/** เลือกตาราง/การ์ดจากความกว้างพื้นที่ผลลัพธ์ (px) และขนาดตัวอักษรราก (px) */
+/** เลือกตาราง/แถวกะทัดรัดจากความกว้างพื้นที่ผลลัพธ์ (px) และขนาดตัวอักษรราก (px) */
 export function chooseRankingLayout(containerPx: number, rootFontPx: number): RankingLayout {
-  return containerPx / rootFontPx >= RANKING_TABLE_MIN_REM ? 'table' : 'cards';
+  return containerPx / rootFontPx >= RANKING_TABLE_MIN_REM ? 'table' : 'compact';
+}
+
+/** ความกว้างป้ายเล็กในแถวกะทัดรัดตามความกว้างพื้นที่ผลลัพธ์ (px) — ตารางใช้ RANKING_ROW_PLATE_WIDTH เสมอ */
+export function compactPlateWidth(containerPx: number): number {
+  return containerPx < RANKING_NARROW_MAX_PX ? RANKING_ROW_PLATE_WIDTH_NARROW : RANKING_ROW_PLATE_WIDTH;
 }
 
 function rootFontPx(): number {
   return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 }
 
+interface RankingLayoutState {
+  layout: RankingLayout;
+  plateWidth: number;
+}
+
+function measureLayout(containerPx: number, fontPx: number): RankingLayoutState {
+  return { layout: chooseRankingLayout(containerPx, fontPx), plateWidth: compactPlateWidth(containerPx) };
+}
+
 /**
- * ตาราง/การ์ดตามความกว้างจริงของแผง (ResizeObserver) และขนาดตัวอักษร (style ของ <html> ที่ useFontScale ตั้ง)
- * วัดใน useLayoutEffect จึงสลับก่อน paint แรก · ค่าตั้งต้นประมาณจากความกว้างหน้าต่าง (กรอบแอป 880px ลบระยะขอบ)
- * ไม่มี DOM (SSR/เทสต์) = ตาราง
+ * ตาราง/แถวกะทัดรัดตามความกว้างจริงของแผง (ResizeObserver) และขนาดตัวอักษร (style ของ <html> ที่ useFontScale ตั้ง)
+ * วัดใน useLayoutEffect จึงสลับก่อน paint แรก · ค่าตั้งต้นประมาณจากความกว้างหน้าต่าง · ไม่มี DOM (SSR/เทสต์) = ตาราง
  */
-function useRankingLayout(ref: RefObject<HTMLElement>, forced?: RankingLayout): RankingLayout {
-  const [layout, setLayout] = useState<RankingLayout>(() =>
-    forced ??
-    (typeof window === 'undefined'
-      ? 'table'
-      : chooseRankingLayout(Math.min(window.innerWidth - 57, RANKING_WIDE_MAX_PX), rootFontPx())),
+function useRankingLayout(ref: RefObject<HTMLElement>, forced?: RankingLayout): RankingLayoutState {
+  const [state, setState] = useState<RankingLayoutState>(() =>
+    typeof window === 'undefined'
+      ? { layout: 'table', plateWidth: RANKING_ROW_PLATE_WIDTH }
+      : measureLayout(Math.min(window.innerWidth - 57, RANKING_WIDE_MAX_PX), rootFontPx()),
   );
   useLayoutEffect(() => {
     const el = ref.current;
-    if (forced || !el) return;
-    const update = () => setLayout(chooseRankingLayout(el.clientWidth, rootFontPx()));
+    if (!el) return;
+    const update = () => {
+      const next = measureLayout(el.clientWidth, rootFontPx());
+      setState((prev) => (prev.layout === next.layout && prev.plateWidth === next.plateWidth ? prev : next));
+    };
     update();
     if (typeof ResizeObserver === 'undefined') return;
     const ro = new ResizeObserver(update);
@@ -107,27 +121,16 @@ function useRankingLayout(ref: RefObject<HTMLElement>, forced?: RankingLayout): 
       ro.disconnect();
       mo.disconnect();
     };
-  }, [ref, forced]);
-  return forced ?? layout;
+  }, [ref]);
+  return forced ? { ...state, layout: forced } : state;
 }
 
-/**
- * ที่ว่างแทนภาพป้ายที่ยังไม่เข้าใกล้จอ (LazyMount) — ขนาดเท่าภาพจริง และ aria-label เหมือนภาพจริง
- * (เลขทะเบียน/คะแนนในแถวมาจากข้อมูลเดิม ไม่ได้รอภาพ)
- */
-function PlatePlaceholder({ c, widthPx, extraHeight = 0 }: { c: RankingCandidate; widthPx?: number; extraHeight?: number }) {
-  return (
-    <div
-      className="plate-placeholder"
-      role="img"
-      aria-label={buildPlateAriaLabel(formatPlateText(c.input), resolvePlateProvinceLabel(c.input), plateVariantFor(c.auction))}
-      style={{
-        width: widthPx !== undefined ? `${widthPx}px` : '100%',
-        aspectRatio: `${PLATE_W} / ${PLATE_H}`,
-        marginBottom: extraHeight ? `${extraHeight}px` : undefined,
-      }}
-    />
-  );
+/** เปิด/ปิดส่วนขยายของแถวเดียว (แถวอื่นคงเดิม — เปิดได้หลายแถวพร้อมกัน ไม่ใช่ accordion เดี่ยว) */
+export function toggleExpandedKey(prev: ReadonlySet<string>, key: string): Set<string> {
+  const next = new Set(prev);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
 }
 
 /** Badge (คู่เลข / ผลรวม / เลขโปรด) ของหนึ่งทะเบียน — ใช้ทั้งแถวตารางและการ์ด */
@@ -291,6 +294,8 @@ interface RankingPanelProps {
   onViewBirthdayCompat?: (input: DetailModeInput, returnContext?: ReturnContext) => void;
   /** บังคับรูปแบบผลลัพธ์ (เทสต์) — ไม่ส่ง = เลือกตามความกว้างจริง (useRankingLayout) */
   layout?: RankingLayout;
+  /** แถวที่เปิดส่วนขยายไว้ตั้งแต่แรก (เทสต์) — key = เลขท้าย หรือ "target-<index ช่อง>" */
+  initialExpanded?: string[];
   /** มีค่าเฉพาะตอนกลับมาจากหน้าธาตุจีน/อายตนะ6/เช็ควันเกิดที่มาจากหน้านี้เดิม — ใช้ prefill
    * ฟอร์มทั้งหมดตั้งแต่ mount ครั้งแรก (แทน BATCH_FORM_DEFAULTS) แล้วปล่อยให้ resultsByLength
    * useMemo คำนวณ Top N ใหม่ให้เองตามปกติ ไม่ต้อง trigger อะไรเพิ่ม */
@@ -303,10 +308,13 @@ export function RankingPanel({
   onViewBirthdayCompat,
   restoreState,
   layout: forcedLayout,
+  initialExpanded,
 }: RankingPanelProps = {}) {
   // วัดความกว้างที่ตารางใช้ได้จริง (.ranking-wide-probe กว้างเท่าพื้นที่ผลลัพธ์แบบตาราง)
   const probeRef = useRef<HTMLDivElement>(null);
-  const resultsLayout = useRankingLayout(probeRef, forcedLayout);
+  const { layout: resultsLayout, plateWidth: compactWidthPx } = useRankingLayout(probeRef, forcedLayout);
+  // id ของส่วนที่ขยาย (aria-controls ของป้ายเล็กและปุ่ม "ดูรายละเอียด")
+  const detailIdBase = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const fieldDefaults = resolveBatchFormDefaults(restoreState);
   const [frontDigit, setFrontDigit] = useState(fieldDefaults.frontDigit);
   const [letter1, setLetter1] = useState(fieldDefaults.letter1);
@@ -315,7 +323,7 @@ export function RankingPanel({
   const [excludePopular, setExcludePopular] = useState(fieldDefaults.excludePopular);
   const [rowLimit, setRowLimit] = useState<RowLimit>(fieldDefaults.rowLimit);
   const [activeTail, setActiveTail] = useState<TailLength>(2);
-  const [expandedTails, setExpandedTails] = useState<Set<string>>(new Set());
+  const [expandedTails, setExpandedTails] = useState<Set<string>>(() => new Set(initialExpanded));
   const [favoriteInputs, setFavoriteInputs] = useState<string[]>(fieldDefaults.favoriteDigits);
   const [targetInputs, setTargetInputs] = useState<string[]>(
     () => fieldDefaults.targetTails ?? createEmptyTargetTails(),
@@ -341,17 +349,8 @@ export function RankingPanel({
     });
   };
 
-  const toggleExpanded = (tailDigits: string) => {
-    setExpandedTails((prev) => {
-      const next = new Set(prev);
-      if (next.has(tailDigits)) {
-        next.delete(tailDigits);
-      } else {
-        next.add(tailDigits);
-      }
-      return next;
-    });
-  };
+  // key = เลขท้าย (Top N) หรือ "target-<ช่อง>" (เลขที่เล็งไว้) — เปิดได้หลายแถวพร้อมกัน
+  const toggleExpanded = (key: string) => setExpandedTails((prev) => toggleExpandedKey(prev, key));
 
   const isValid =
     /^[0-9]$/.test(frontDigit) &&
@@ -584,38 +583,61 @@ export function RankingPanel({
               <div className="target-results-heading">
                 จัดอันดับเลขที่เล็งไว้ {targetResults.length} ตัว — ดีที่สุดไปแย่ที่สุด
               </div>
-              <div className="target-results-list">
-                {targetResults.map((result) => (
-                  <ComparisonResultCard
-                    key={result.slotIndex}
-                    result={result}
-                    label={`ช่อง ${result.slotIndex + 1}`}
-                    isWinner={result.rank === targetResults[0].rank}
-                    emphasis
-                    onViewFiveElement={
-                      onViewFiveElement
-                        ? (input) => onViewFiveElement(input, currentReturnContext)
-                        : undefined
-                    }
-                    onViewAyatana6={
-                      onViewAyatana6
-                        ? (input) => onViewAyatana6(input, currentReturnContext)
-                        : undefined
-                    }
-                    headerExtra={
-                      onViewBirthdayCompat && (
-                        <button
-                          type="button"
-                          className="birthday-compat-link"
-                          onClick={() => onViewBirthdayCompat(result.input, currentReturnContext)}
-                        >
-                          เช็คกับวันเกิด →
-                        </button>
-                      )
-                    }
-                  />
-                ))}
-              </div>
+              <p className="ranking-plate-note">ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง</p>
+              {/* แถวกะทัดรัดทุกความกว้างจอ — กดป้ายเล็กหรือ "ดูรายละเอียด" เพื่อดูป้ายใหญ่ + การคำนวณ */}
+              <ol className="rank-rows target-results-list">
+                {targetResults.map((result) => {
+                  const key = `target-${result.slotIndex}`;
+                  const detailId = `${detailIdBase}-target-${result.slotIndex}`;
+                  const isExpanded = expandedTails.has(key);
+                  return (
+                    <CompactRankRow
+                      key={result.slotIndex}
+                      rank={result.rank}
+                      label={`ช่อง ${result.slotIndex + 1}`}
+                      input={result.input}
+                      plateWidth={compactWidthPx}
+                      verdict={result.mode1.verdict}
+                      score={result.finalScore}
+                      scoreNote={result.hasBadPair && <span className="score-figure__note">พบคู่เสีย (Mode 2)</span>}
+                      expanded={isExpanded}
+                      detailId={detailId}
+                      onToggle={() => toggleExpanded(key)}
+                    >
+                      <div className="rank-row-detail-body">
+                        <PlateWithTags input={result.input} layout="column" />
+                        <details className="rank-row-calc">
+                          <summary>ดูรายละเอียดการคำนวณ</summary>
+                          <ModeDetailPanel
+                            input={result.input}
+                            mode1={result.mode1}
+                            mode2={result.mode2}
+                            mode3={result.mode3}
+                            onViewFiveElement={
+                              onViewFiveElement ? (input) => onViewFiveElement(input, currentReturnContext) : undefined
+                            }
+                            onViewAyatana6={
+                              onViewAyatana6 ? (input) => onViewAyatana6(input, currentReturnContext) : undefined
+                            }
+                          />
+                          <ComparisonSupplementary result={result} />
+                        </details>
+                        {onViewBirthdayCompat && (
+                          <div className="rank-row-detail-actions">
+                            <button
+                              type="button"
+                              className="birthday-compat-link"
+                              onClick={() => onViewBirthdayCompat(result.input, currentReturnContext)}
+                            >
+                              เช็คกับวันเกิด →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </CompactRankRow>
+                  );
+                })}
+              </ol>
             </>
           )}
         </div>
@@ -639,7 +661,7 @@ export function RankingPanel({
                 </button>
               ))}
             </div>
-            {resultsByLength && activeCandidates.length > 0 && resultsLayout === 'table' && (
+            {resultsByLength && activeCandidates.length > 0 && (
               <p className="ranking-plate-note">ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง</p>
             )}
             {!resultsByLength ? (
@@ -650,58 +672,29 @@ export function RankingPanel({
               <div className="ranking-table-wrap">
                 <div className="ranking-empty">ไม่พบเลขท้ายที่ผ่านเกณฑ์ในความยาวนี้</div>
               </div>
-            ) : resultsLayout === 'cards' ? (
-              // จอแคบ/ตัวอักษรใหญ่: รายการการ์ด ต่อทะเบียน = อันดับ คะแนน Verdict ภาพป้ายขนาดเต็ม (+ปุ่มคัดลอก) แท็ก Badge ปุ่ม
-              <ol className="ranking-cards">
+            ) : resultsLayout === 'compact' ? (
+              // จอแคบ/ตัวอักษรใหญ่: แถวกะทัดรัด (อันดับ | ป้ายเล็ก | verdict + คะแนน) — badge/ป้ายพิเศษ/ป้ายใหญ่อยู่ในส่วนที่ขยาย
+              <ol className="rank-rows">
                 {activeCandidates.map((c, i) => {
                   const isExpanded = expandedTails.has(c.tailDigits);
                   return (
-                    <li
+                    <CompactRankRow
                       key={c.tailDigits}
-                      className={`ranking-card ranking-card--${rankTier(i + 1)}`}
-                      data-ranking-row=""
+                      rank={i + 1}
+                      input={c.input}
+                      auction={c.auction}
+                      plateWidth={compactWidthPx}
+                      verdict={c.verdict}
+                      score={c.finalScore}
+                      expanded={isExpanded}
+                      detailId={`${detailIdBase}-${activeTail}-${c.tailDigits}`}
+                      onToggle={() => toggleExpanded(c.tailDigits)}
                     >
-                      {/* แถวบน: ป้ายอันดับ + ภาพป้ายทะเบียน + verdict · แถวล่าง: คะแนนตัวใหญ่ (จอแคบ: ภาพป้ายลงบรรทัดใหม่เต็มกว้าง) */}
-                      <div className="ranking-card-main">
-                        <span className="ranking-card-rank">
-                          <RankBadge rank={i + 1} />
-                        </span>
-                        <span className="ranking-card-verdict">
-                          <VerdictPill verdict={c.verdict} />
-                        </span>
-                        <div className="ranking-card-plate">
-                          {/* 30 แถว: วาดภาพป้ายเฉพาะที่ใกล้จอ (ดู LazyMount) */}
-                          <LazyMount placeholder={<PlatePlaceholder c={c} extraHeight={48} />}>
-                            <PlateWithTags input={c.input} auction={c.auction} popular={c.popular} layout="column" />
-                          </LazyMount>
-                        </div>
-                        <span className="ranking-card-score score-cell">
-                          <ScoreFigure score={c.finalScore} rank={i + 1} />
-                        </span>
-                      </div>
-                      <CandidateBadges c={c} />
-                      <div className="ranking-card-actions">
-                        <button
-                          type="button"
-                          className={`ranking-expand-btn${isExpanded ? ' open' : ''}`}
-                          aria-expanded={isExpanded}
-                          onClick={() => toggleExpanded(c.tailDigits)}
-                        >
-                          <span className="ranking-expand-icon">▸</span>
-                          <span className="ranking-expand-text">ดูรายละเอียด</span>
-                        </button>
-                        {onViewBirthdayCompat && (
-                          <button
-                            type="button"
-                            className="birthday-compat-link"
-                            onClick={() => onViewBirthdayCompat(c.input, currentReturnContext)}
-                          >
-                            เช็คกับวันเกิด →
-                          </button>
-                        )}
-                      </div>
-                      {isExpanded && (
-                        <div className="ranking-card-detail">
+                      <div className="rank-row-detail-body">
+                        <PlateWithTags input={c.input} auction={c.auction} popular={c.popular} layout="column" />
+                        <CandidateBadges c={c} />
+                        <details className="rank-row-calc">
+                          <summary>ดูรายละเอียดการคำนวณ</summary>
                           <ModeDetailPanel
                             input={c.input}
                             mode1={c.mode1}
@@ -714,9 +707,20 @@ export function RankingPanel({
                               onViewAyatana6 ? (input) => onViewAyatana6(input, currentReturnContext) : undefined
                             }
                           />
-                        </div>
-                      )}
-                    </li>
+                        </details>
+                        {onViewBirthdayCompat && (
+                          <div className="rank-row-detail-actions">
+                            <button
+                              type="button"
+                              className="birthday-compat-link"
+                              onClick={() => onViewBirthdayCompat(c.input, currentReturnContext)}
+                            >
+                              เช็คกับวันเกิด →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </CompactRankRow>
                   );
                 })}
               </ol>
@@ -737,6 +741,7 @@ export function RankingPanel({
                   <tbody>
                     {activeCandidates.map((c, i) => {
                       const isExpanded = expandedTails.has(c.tailDigits);
+                      const detailId = `${detailIdBase}-${activeTail}-${c.tailDigits}`;
                       return (
                         <Fragment key={c.tailDigits}>
                           <tr data-ranking-row="" className={`ranking-row--${rankTier(i + 1)}`}>
@@ -744,18 +749,16 @@ export function RankingPanel({
                               <RankBadge rank={i + 1} />
                             </td>
                             <td className="plate-cell">
-                              {/* ภาพป้ายย่อ (ไม่มี caption/ปุ่มคัดลอก — ประโยค "ภาพจำลอง" อยู่เหนือตารางครั้งเดียว)
-                                  ข้อความเลขทะเบียนเก็บไว้แบบ sr-only ให้ค้นหา (Ctrl+F) และ screen reader อ่านได้ */}
-                              <LazyMount placeholder={<PlatePlaceholder c={c} widthPx={RANKING_ROW_PLATE_WIDTH} />}>
-                                <PlateImage
-                                  frontDigit={c.input.frontDigit}
-                                  thaiLetters={c.input.thaiLetters}
-                                  tailDigits={c.input.tailDigits}
-                                  variant={plateVariantFor(c.auction)}
-                                  provinceLabel={resolvePlateProvinceLabel(c.input)}
-                                  compactWidth={RANKING_ROW_PLATE_WIDTH}
-                                />
-                              </LazyMount>
+                              {/* ป้ายเล็กเป็นปุ่มขยาย (ผลเหมือน "ดูรายละเอียด") ไม่มี caption/ปุ่มคัดลอก — ประโยค "ภาพจำลอง" อยู่เหนือตารางครั้งเดียว
+                                  ข้อความเลขทะเบียนเก็บไว้แบบ sr-only ให้ค้นหา (Ctrl+F) */}
+                              <PlateToggleButton
+                                input={c.input}
+                                auction={c.auction}
+                                widthPx={RANKING_ROW_PLATE_WIDTH}
+                                expanded={isExpanded}
+                                controls={detailId}
+                                onToggle={() => toggleExpanded(c.tailDigits)}
+                              />
                               <span className="sr-only">{formatPlateText(c.input)}</span>
                             </td>
                             <td className="verdict-cell">
@@ -783,15 +786,11 @@ export function RankingPanel({
                             </td>
                             <td className="ranking-actions-col">
                               <div className="ranking-actions-cell">
-                                <button
-                                  type="button"
-                                  className={`ranking-expand-btn${isExpanded ? ' open' : ''}`}
-                                  aria-expanded={isExpanded}
-                                  onClick={() => toggleExpanded(c.tailDigits)}
-                                >
-                                  <span className="ranking-expand-icon">▸</span>
-                                  <span className="ranking-expand-text">ดูรายละเอียด</span>
-                                </button>
+                                <ExpandButton
+                                  expanded={isExpanded}
+                                  controls={detailId}
+                                  onToggle={() => toggleExpanded(c.tailDigits)}
+                                />
                                 {onViewBirthdayCompat && (
                                   <button
                                     type="button"
@@ -804,9 +803,10 @@ export function RankingPanel({
                               </div>
                             </td>
                           </tr>
-                          {isExpanded && (
-                            <tr className="ranking-detail-row">
-                              <td colSpan={TABLE_COLUMN_COUNT}>
+                          {/* มีแถวเสมอ (ซ่อนตอนยุบ) ให้ aria-controls ชี้ได้ — เนื้อหา render เฉพาะตอนเปิด */}
+                          <tr id={detailId} className="ranking-detail-row" hidden={!isExpanded}>
+                            <td colSpan={TABLE_COLUMN_COUNT}>
+                              {isExpanded && (
                                 <ModeDetailPanel
                                   input={c.input}
                                   mode1={c.mode1}
@@ -835,9 +835,9 @@ export function RankingPanel({
                                       : undefined
                                   }
                                 />
-                              </td>
-                            </tr>
-                          )}
+                              )}
+                            </td>
+                          </tr>
                         </Fragment>
                       );
                     })}

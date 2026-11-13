@@ -51,9 +51,22 @@ describe('ภาพป้ายทุกที่ที่เป็นการ�
       favoriteDigits: ['', '', ''], targetTails: ['9999', '2295', '1234', '', '', '', '', '', '', ''],
     };
     const html = renderToStaticMarkup(createElement(RankingPanel as (p: { restoreState?: BatchReturnState }) => ReturnType<typeof RankingPanel>, { restoreState }));
+    // เดิม: การ์ดเต็มทุกช่อง (expectPlateCards 3 ใบ + แท็กเลขประมูล) — batch-emphasis รอบ 2: แถวกะทัดรัด ป้ายเล็กทุกช่อง
+    // ป้ายใหญ่ + ปุ่มคัดลอก + "ภาพจำลอง…" + แท็กอยู่ในส่วนที่ขยาย (เปิดไว้ทุกช่องแล้วต้องครบเหมือนเดิม)
     expect(html).toContain('target-results-list');
-    expectPlateCards(html, 3);
-    expect(html).toContain('● เลขประมูล');
+    expect(count(html, /<svg class="plate-image /g)).toBe(3);
+    expect(count(html, /plate-figure--compact/g)).toBe(3);
+    expect(html).not.toMatch(/class="plate"/);
+    const open = renderToStaticMarkup(
+      createElement(RankingPanel as (p: { restoreState?: BatchReturnState; initialExpanded?: string[] }) => ReturnType<typeof RankingPanel>, {
+        restoreState,
+        initialExpanded: ['target-0', 'target-1', 'target-2'],
+      }),
+    );
+    expect(count(open, /<svg class="plate-image /g)).toBe(6); // ป้ายเล็ก 3 + ป้ายใหญ่ 3
+    expect(count(open, /class="plate-copy-btn"/g)).toBe(3);
+    expect(count(open, /ภาพจำลอง ไม่ใช่ป้ายจริง<\/span>/g)).toBe(3);
+    expect(open).toContain('● เลขประมูล');
   });
 
   // เดิม: แถวยังเป็นข้อความ ไม่มีภาพป้าย (ภาพย่อ 120px ทำให้ตารางเลื่อนแนวนอนมากขึ้น) — ผู้ใช้สั่งให้แสดงภาพป้ายในตาราง:
@@ -63,7 +76,8 @@ describe('ภาพป้ายทุกที่ที่เป็นการ�
       frontDigit: '1', letter1: 'ก', letter2: 'ข', excludeAuction: false, excludePopular: false, rowLimit: 10, favoriteDigits: ['', '', ''],
     };
     const html = renderToStaticMarkup(createElement(RankingPanel as (p: { restoreState?: BatchReturnState }) => ReturnType<typeof RankingPanel>, { restoreState }));
-    expect(count(html, /<td class="plate-cell"><figure class="plate-figure plate-figure--compact"/g)).toBe(10);
+    // เดิม: <td class="plate-cell"><figure class="plate-figure plate-figure--compact" — ป้ายเล็กเป็นปุ่มขยาย (batch-emphasis รอบ 2)
+    expect(count(html, /<td class="plate-cell"><button type="button" class="plate-toggle"[^>]*><span class="plate-figure plate-figure--compact"/g)).toBe(10);
     expect(count(html, /<svg class="plate-image /g)).toBe(10);
     expect(count(html, /<span class="sr-only">1 กข \d+<\/span>/g)).toBe(10);
     const detailRow = rankingSource.slice(rankingSource.indexOf('ranking-detail-row'));

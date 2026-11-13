@@ -4,7 +4,6 @@ import { ModeDetailPanel } from './ModeDetailPanel';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
 import { PlateWithTags } from './PlateWithTags';
-import { RankBadge, rankTier, ScoreFigure, VerdictPill } from './RankEmphasis';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -17,8 +16,6 @@ interface ComparisonResultCardProps {
   onViewAyatana6?: (input: DetailModeInput) => void;
   /** ปุ่ม/ลิงก์เพิ่มเติมใต้บรรทัดคะแนน เช่น "เช็คกับวันเกิด →" ของหน้า Batch */
   headerExtra?: ReactNode;
-  /** หน้า Batch (โหมด "เลขที่เล็งไว้"): ป้ายอันดับ medal + verdict pill + คะแนนตัวใหญ่ — หน้าเปรียบเทียบไม่ส่ง (แสดงแบบเดิม) */
-  emphasis?: boolean;
 }
 
 /**
@@ -32,40 +29,23 @@ export function ComparisonResultCard({
   onViewFiveElement,
   onViewAyatana6,
   headerExtra,
-  emphasis = false,
 }: ComparisonResultCardProps) {
   return (
-    <div
-      className={`compare-column${isWinner ? ' winner' : ''}${emphasis ? ` compare-column--emphasis compare-column--${rankTier(result.rank)}` : ''}`}
-    >
+    <div className={`compare-column${isWinner ? ' winner' : ''}`}>
       <div className="compare-column-header">
         <div className="compare-slot-label">{label}</div>
         {/* ภาพป้าย + แท็กเลขประมูล/เลขสวย แทนชิปเลขทะเบียนเดิม (ทั้งหน้าเปรียบเทียบและโหมด "เลขที่เล็งไว้") */}
         <PlateWithTags input={result.input} layout="column" />
-        {emphasis ? (
-          <div className="compare-emphasis-row">
-            <RankBadge rank={result.rank} />
-            <VerdictPill verdict={result.mode1.verdict} />
-            <ScoreFigure
-              score={result.finalScore}
-              rank={result.rank}
-              note={result.hasBadPair && <span className="score-figure__note">พบคู่เสีย (Mode 2)</span>}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="compare-rank-row">
-              <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>
-              <span className={`verdict ${result.mode1.verdict ? 'v-good' : 'v-bad'}`}>
-                {result.mode1.verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
-              </span>
-            </div>
-            <div className="compare-score-line">
-              คะแนนรวม: {result.finalScore}
-              {result.hasBadPair && ' · พบคู่เสีย (Mode 2)'}
-            </div>
-          </>
-        )}
+        <div className="compare-rank-row">
+          <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>
+          <span className={`verdict ${result.mode1.verdict ? 'v-good' : 'v-bad'}`}>
+            {result.mode1.verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
+          </span>
+        </div>
+        <div className="compare-score-line">
+          คะแนนรวม: {result.finalScore}
+          {result.hasBadPair && ' · พบคู่เสีย (Mode 2)'}
+        </div>
         {headerExtra}
       </div>
 
@@ -78,27 +58,31 @@ export function ComparisonResultCard({
         onViewAyatana6={onViewAyatana6}
       />
 
-      {(FEATURE_FLAGS.ayatana6Mode || FEATURE_FLAGS.fiveElementMode) && (
-        <div className="compare-supplementary">
-          <div className="compare-supplementary-note">
-            ข้อมูลประกอบ — ไม่มีผลต่อการตัดสินว่าใครดีกว่า
-          </div>
+      <ComparisonSupplementary result={result} />
+    </div>
+  );
+}
 
-          {FEATURE_FLAGS.ayatana6Mode && result.ayatana6 && (
-            <div className="compare-supplementary-block">
-              <div className="compare-supplementary-title">อายตนะ6</div>
-              <div className="ayatana6-inline-title">อายตนะ6 = {result.ayatana6.digitRoot}</div>
-              <div className="ayatana6-inline-meaning">{result.ayatana6.meaning}</div>
-            </div>
-          )}
+/** "ข้อมูลประกอบ" (อายตนะ6 / ธาตุจีน) ของผล comparePlates หนึ่งใบ — ใช้ในการ์ดเปรียบเทียบ และส่วนที่ขยายของโหมด "เลขที่เล็งไว้" (Batch) */
+export function ComparisonSupplementary({ result }: { result: ComparisonResult }) {
+  if (!(FEATURE_FLAGS.ayatana6Mode || FEATURE_FLAGS.fiveElementMode)) return null;
+  return (
+    <div className="compare-supplementary">
+      <div className="compare-supplementary-note">ข้อมูลประกอบ — ไม่มีผลต่อการตัดสินว่าใครดีกว่า</div>
 
-          {FEATURE_FLAGS.fiveElementMode && result.fiveElement && (
-            <div className="compare-supplementary-block">
-              <div className="compare-supplementary-title">ธาตุจีน 5 ธาตุ</div>
-              <div className="ayatana6-inline-title">{result.fiveElement.verdict}</div>
-              <div className="ayatana6-inline-meaning">{result.fiveElement.verdictDetail}</div>
-            </div>
-          )}
+      {FEATURE_FLAGS.ayatana6Mode && result.ayatana6 && (
+        <div className="compare-supplementary-block">
+          <div className="compare-supplementary-title">อายตนะ6</div>
+          <div className="ayatana6-inline-title">อายตนะ6 = {result.ayatana6.digitRoot}</div>
+          <div className="ayatana6-inline-meaning">{result.ayatana6.meaning}</div>
+        </div>
+      )}
+
+      {FEATURE_FLAGS.fiveElementMode && result.fiveElement && (
+        <div className="compare-supplementary-block">
+          <div className="compare-supplementary-title">ธาตุจีน 5 ธาตุ</div>
+          <div className="ayatana6-inline-title">{result.fiveElement.verdict}</div>
+          <div className="ayatana6-inline-meaning">{result.fiveElement.verdictDetail}</div>
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { RankBadge, rankTier, ScoreFigure, VerdictPill } from './RankEmphasis';
-import { RankingPanel } from './RankingPanel';
+import { RankingPanel, rankTargetTails } from './RankingPanel';
 import type { BatchReturnState, RankingLayout } from './RankingPanel';
 import { ComparisonResultCard } from './ComparisonResultCard';
 import { ResultCard } from './ResultCard';
@@ -61,8 +61,9 @@ const renderPanel = (layout: RankingLayout, restoreState: BatchReturnState) =>
     }),
   );
 
-describe('ตาราง/การ์ด Top N: อันดับ/verdict/คะแนนตรงกับ engine ทุกแถว', () => {
-  for (const layout of ['table', 'cards'] as const)
+// เดิม: ['table', 'cards'] และ class แถว 'ranking-card' — batch-emphasis รอบ 2: การ์ดสูงเปลี่ยนเป็นแถวกะทัดรัด ('compact', class 'rank-row')
+describe('ตาราง/แถวกะทัดรัด Top N: อันดับ/verdict/คะแนนตรงกับ engine ทุกแถว', () => {
+  for (const layout of ['table', 'compact'] as const)
     it(layout, () => {
       const html = renderPanel(layout, state(false));
       const cands = generateTopCandidates(1, ['ก', 'ข'], 2, false, false, 30, [null, null, null, null]);
@@ -76,7 +77,7 @@ describe('ตาราง/การ์ด Top N: อันดับ/verdict/ค�
       expect(scores).toEqual(cands.map((c) => c.finalScore));
       expect(count(html, /score-figure--top/g)).toBe(1);
       // พื้นไล่เฉด medal เฉพาะอันดับ 1–3
-      const row = layout === 'table' ? 'ranking-row' : 'ranking-card';
+      const row = layout === 'table' ? 'ranking-row' : 'rank-row';
       expect(count(html, new RegExp(`${row}--(gold|silver|bronze)`, 'g'))).toBe(3);
       expect(count(html, new RegExp(`${row}--plain`, 'g'))).toBe(cands.length - 3);
     });
@@ -89,17 +90,27 @@ describe('ตาราง/การ์ด Top N: อันดับ/verdict/ค�
 
 describe('โหมด "เลขที่เล็งไว้" และการ์ด #single', () => {
   const results = comparePlates(['1234', '9999', '12', '15', '5555'].map((tailDigits) => ({ frontDigit: 1, thaiLetters: ['ก', 'ข'] as [string, string], tailDigits })));
-  it('เลขที่เล็งไว้ (emphasis): ป้ายอันดับตาม result.rank + verdict pill + คะแนนตัวใหญ่', () => {
-    for (const r of results) {
-      const html = renderToStaticMarkup(createElement(ComparisonResultCard, { result: r, label: 'ช่อง 1', isWinner: r.rank === 1, emphasis: true }));
-      expect(html).toContain(`aria-label="อันดับที่ ${r.rank}"`);
-      expect(html).toContain(`compare-column--${rankTier(r.rank)}`);
-      expect(html).toContain(`aria-label="ผลประเมิน: ${r.mode1.verdict ? 'ใช้ได้' : 'ไม่ควรใช้'}"`);
-      expect(html).toContain(`<span class="score-figure__value">${r.finalScore}</span>`);
-      expect(html).not.toContain('compare-rank-badge');
-    }
+  // เดิม: render ComparisonResultCard (emphasis) ตรง ๆ — batch-emphasis รอบ 2: โหมดนี้เป็นแถวกะทัดรัด (CompactRankRow) ใน RankingPanel
+  // ตรวจอันดับ (result.rank ซึ่งเสมอกันได้) / verdict / คะแนนทุกแถวจาก engine แทน และหน้าเปรียบเทียบไม่มี prop emphasis แล้ว
+  it('เลขที่เล็งไว้: ป้ายอันดับตาม result.rank + verdict pill + คะแนนตัวใหญ่ ทุกแถว ตามลำดับเดิม', () => {
+    const tails = ['1234', '9999', '12', '15', '5555'];
+    const html = renderPanel('compact', { ...state(false), targetTails: [...tails, '', '', '', '', ''] });
+    const ranked = rankTargetTails(1, ['ก', 'ข'], [...tails, '', '', '', '', '']);
+    const ranks = [...html.matchAll(/aria-label="อันดับที่ (\d+)"/g)].map((m) => Number(m[1]));
+    expect(ranks).toEqual(ranked.map((r) => r.rank));
+    const tiers = [...html.matchAll(/<li class="rank-row rank-row--([a-z]+)"/g)].map((m) => m[1]);
+    expect(tiers).toEqual(ranked.map((r) => rankTier(r.rank)));
+    const verdicts = [...html.matchAll(/aria-label="ผลประเมิน: ([^"]+)"/g)].map((m) => m[1]);
+    expect(verdicts).toEqual(ranked.map((r) => (r.mode1.verdict ? 'ใช้ได้' : 'ไม่ควรใช้')));
+    expect(new Set(verdicts).size).toBe(2);
+    const scores = [...html.matchAll(/<span class="score-figure__value">(\d+)<\/span>/g)].map((m) => Number(m[1]));
+    expect(scores).toEqual(ranked.map((r) => r.finalScore));
+    const labels = [...html.matchAll(/<span class="rank-row-label">([^<]+)<\/span>/g)].map((m) => m[1]);
+    expect(labels).toEqual(ranked.map((r) => `ช่อง ${r.slotIndex + 1}`));
+    expect(count(html, /พบคู่เสีย \(Mode 2\)/g)).toBe(ranked.filter((r) => r.hasBadPair).length);
+    expect(html).not.toContain('compare-column');
   });
-  it('หน้าเปรียบเทียบ (ไม่ส่ง emphasis): แสดงแบบเดิม', () => {
+  it('หน้าเปรียบเทียบ: แสดงแบบเดิม (ไม่มีป้ายอันดับ medal)', () => {
     const html = renderToStaticMarkup(createElement(ComparisonResultCard, { result: results[0], label: 'ทะเบียน A', isWinner: true }));
     expect(html).toContain('compare-rank-badge');
     expect(html).toContain(`คะแนนรวม: ${results[0].finalScore}`);
@@ -157,10 +168,12 @@ export function emphasisPairs(theme: Record<string, string>): [string, RGB, RGB]
     ['ไม่ควรใช้', c('--verdict-bad-ink'), c('--verdict-bad')],
     ['คะแนน บนพื้นการ์ด', c('--navy'), card],
     ['label คะแนนรวม บนพื้นการ์ด', c('--ink-soft'), card],
+    ['พบคู่เสีย บนพื้นการ์ด', c('--ink'), card],
   ];
   for (const [name, medal] of [['ทอง', '--medal-gold'], ['เงิน', '--medal-silver-edge'], ['ทองแดง', '--medal-bronze']] as const) {
     const bg = mix(c(medal), card, tint);
-    pairs.push([`คะแนน บนพื้นแถว${name}`, c('--navy'), bg], [`label บนพื้นแถว${name}`, c('--ink-soft'), bg], [`ตัวอักษรทั่วไป บนพื้นแถว${name}`, c('--ink'), bg]);
+    // navy = คะแนน + ปุ่ม "ดูรายละเอียด" · ink-soft = label คะแนนรวม / "ช่อง N" · ink = "พบคู่เสีย" (เลขที่เล็งไว้)
+    pairs.push([`คะแนน/ดูรายละเอียด บนพื้นแถว${name}`, c('--navy'), bg], [`label บนพื้นแถว${name}`, c('--ink-soft'), bg], [`ตัวอักษรทั่วไป บนพื้นแถว${name}`, c('--ink'), bg], [`พบคู่เสีย บนพื้นแถว${name}`, c('--ink'), bg]);
   }
   return pairs;
 }

@@ -805,9 +805,6 @@ table.ranking-table {
   padding-top: 6px;
   padding-bottom: 6px;
 }
-.ranking-table .plate-cell .plate-figure--compact {
-  width: var(--plate-max-width);
-}
 .ranking-table .score-cell {
   font-family: 'IBM Plex Mono', monospace;
   font-weight: 700;
@@ -960,89 +957,221 @@ table.ranking-table {
   color: var(--ink-soft);
 }
 
-/* จอแคบ/ตัวอักษรใหญ่: รายการการ์ดแทนตาราง (RankingPanel → chooseRankingLayout) */
-.ranking-cards {
+/* ป้ายทะเบียนเล็กที่กดเพื่อขยาย (ตาราง + แถวกะทัดรัด) — ขนาดภาพมาจาก compactWidth (px) */
+.plate-toggle {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 6px;
+  min-height: 44px; /* พื้นที่กด ≥ 44px (ภาพป้าย 124px สูง ~64px อยู่แล้ว) */
+}
+.plate-toggle:focus-visible {
+  outline: 3px solid var(--navy);
+  outline-offset: 3px;
+}
+.plate-toggle:hover .plate-image {
+  filter: brightness(1.04);
+}
+.plate-figure--compact,
+.lazy-mount-placeholder {
+  display: block;
+}
+.plate-toggle .plate-figure--compact {
+  width: var(--plate-max-width);
+}
+.plate-toggle .plate-placeholder {
+  display: block;
+  margin: 0;
+}
+
+/* จอแคบ/ตัวอักษรใหญ่ + โหมด "เลขที่เล็งไว้": แถวกะทัดรัด (RankingPanel → chooseRankingLayout, CompactRankRow.tsx)
+   ขนาดตัดสินด้วย container query (calc px + rem) — ป้ายเล็กเป็น px คงที่ ส่วนอันดับ/verdict/คะแนนขยายตามขนาดตัวอักษร */
+.rank-rows {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.ranking-cards {
-  container-type: inline-size;
-}
-.ranking-card {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 12px 14px;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.rank-row {
+  border-bottom: 1px solid var(--line);
   min-width: 0;
-  --plate-max-width: 340px;
 }
-/* จอแคบ: แถวบน = ป้ายอันดับ + verdict, ภาพป้ายเต็มกว้าง, แถวล่าง = คะแนนตัวใหญ่ */
-.ranking-card-main {
+.rank-row:last-child {
+  border-bottom: none;
+}
+/* ค่าเริ่มต้น (จอแคบ เช่น 390px): ป้ายอันดับ | ป้ายเล็ก | verdict + คะแนนซ้อนกัน · ปุ่ม "ดูรายละเอียด" ใต้ป้ายเล็ก */
+.rank-row-main {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   grid-template-areas:
-    'rank verdict'
-    'plate plate'
-    'score score';
+    'rank plate side'
+    'rank toggle side';
   align-items: center;
-  gap: 10px 12px;
+  gap: 2px 10px;
+  padding: 8px 12px;
 }
-.ranking-card-rank {
+.rank-row-rank {
   grid-area: rank;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  align-self: start;
+  padding-top: 4px;
 }
-.ranking-card-verdict {
-  grid-area: verdict;
-  justify-self: end;
+.rank-row-label {
+  font-size: 0.6875rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
-.ranking-card-plate {
+.rank-row-plate {
   grid-area: plate;
   min-width: 0;
 }
-.ranking-card-score {
-  grid-area: score;
+.rank-row-side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  text-align: right;
 }
-/* การ์ดกว้างพอ (จอ ~820px): แถวบน = ป้ายอันดับ + ภาพป้าย + verdict ในแถวเดียว */
-@container (min-width: 36rem) {
-  .ranking-card-main {
-    grid-template-columns: auto minmax(0, 340px) 1fr;
+.rank-row-side .score-figure {
+  align-items: flex-end;
+}
+.rank-row-toggle {
+  grid-area: toggle;
+}
+.rank-row-toggle .ranking-expand-btn {
+  min-height: 44px;
+  font-size: 0.8125rem;
+  padding: 0 4px;
+}
+/* จอแคบ: อันดับ/verdict/คะแนนย่อลงเล็กน้อย (ยังเด่น: ป้ายอันดับ 40px, pill ทึบ 15px ตัวหนา, คะแนน 24px) */
+.rank-row .rank-badge {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.375rem;
+}
+.rank-row .verdict-pill {
+  font-size: 0.9375rem;
+}
+.rank-row .score-figure__value {
+  font-size: 1.5rem;
+}
+.rank-row .score-figure--top .score-figure__value {
+  font-size: 1.75rem;
+}
+/* แคบมาก (ตัวอักษรใหญ่บนจอแคบ): verdict + คะแนนลงบรรทัดใหม่ใต้ป้าย แถวสูงขึ้นแต่ไม่ล้น */
+@container (max-width: calc(124px + 13rem)) {
+  .rank-row-main {
+    grid-template-columns: auto minmax(0, 1fr);
     grid-template-areas:
-      'rank plate verdict'
-      'score score score';
-    align-items: start;
+      'rank plate'
+      'side side'
+      'toggle toggle';
+    gap: 6px 10px;
   }
-  .ranking-card-verdict {
-    justify-self: start;
+  .rank-row-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    text-align: left;
+  }
+  .rank-row-side .score-figure {
+    align-items: flex-start;
   }
 }
-.ranking-card .badges-cell {
+/* กว้างพอ (เช่นจอ 820px): ทุกอย่างในแถวเดียว ขนาดอันดับ/verdict/คะแนนเต็มตามดีไซน์ */
+@container (min-width: calc(150px + 30rem)) {
+  .rank-row-main {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: 'rank plate side toggle';
+    gap: 0 16px;
+    padding: 7px 14px; /* แถวสูง ~81px ที่ป้าย 150px (เป้าหมาย 80–90px) */
+  }
+  .rank-row-rank {
+    align-self: center;
+    padding-top: 0;
+  }
+  .rank-row-side {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px 20px;
+    text-align: left;
+  }
+  .rank-row-side .score-figure {
+    align-items: flex-start;
+  }
+  .rank-row .rank-badge {
+    width: 3.375rem;
+    height: 3.375rem;
+    font-size: 1.75rem;
+  }
+  .rank-row .verdict-pill {
+    font-size: 1.125rem;
+  }
+  .rank-row .score-figure__value {
+    font-size: 2.125rem;
+  }
+  .rank-row .score-figure--top .score-figure__value {
+    font-size: 2.5rem;
+  }
+}
+/* ส่วนที่ขยาย: ป้ายใหญ่ + คัดลอก + "ภาพจำลอง…", badge, ป้ายพิเศษ, "ดูรายละเอียดการคำนวณ", "เช็คกับวันเกิด →" */
+.rank-row-detail {
+  padding: 4px 14px 14px;
+  border-top: 1px dashed var(--line);
+}
+.rank-row-detail[hidden] {
+  display: none;
+}
+.rank-row-detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.rank-row-detail-body .card-plate-head .plate-figure {
+  --plate-max-width: 340px;
+}
+.rank-row-detail-body .badges-cell {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
 }
-.ranking-card .badges-cell .badge,
-.ranking-card .badges-cell .favorite-badge {
+.rank-row-detail-body .badges-cell .badge,
+.rank-row-detail-body .badges-cell .favorite-badge {
   white-space: normal;
 }
-.ranking-card-actions {
+.rank-row-calc > summary {
+  min-height: 44px;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 12px;
-  margin-top: 6px;
+  cursor: pointer;
+  color: var(--navy);
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
-/* พื้นที่กด ≥ 44px บนจอแคบ */
-.ranking-card-actions .ranking-expand-btn,
-.ranking-card-actions .birthday-compat-link {
+.rank-row-calc .detail-grid {
+  margin-top: 4px;
+}
+.rank-row-detail-actions .birthday-compat-link {
   min-height: 44px;
   font-size: 0.8125rem;
-}
-.ranking-card-detail .detail-grid {
-  margin-top: 6px;
 }
 
 /* ---------------------------------------------------------------------
@@ -1142,41 +1271,32 @@ table.ranking-table {
 }
 .score-figure__note {
   font-size: 0.75rem;
-  color: var(--bad);
+  /* --ink ไม่ใช่ --bad: --bad บนพื้นแถวอันดับ 2 (เงิน) โหมดสว่างได้ 4.49:1 ต่ำกว่า 4.5 */
+  color: var(--ink);
+  font-weight: 600;
   margin-top: 2px;
 }
 
 /* แถว/การ์ดอันดับ 1–3: พื้นไล่จากสี medal จาง ๆ ไปพื้นการ์ด (ส่วนขวาเป็นพื้นการ์ดพอดี คอลัมน์ action ที่ sticky จึงกลืนกัน) */
 .ranking-table tr.ranking-row--gold,
-.ranking-card--gold,
-.compare-column--emphasis.compare-column--gold .compare-column-header {
+.rank-row--gold {
   --medal: var(--medal-gold);
 }
 .ranking-table tr.ranking-row--silver,
-.ranking-card--silver,
-.compare-column--emphasis.compare-column--silver .compare-column-header {
+.rank-row--silver {
   --medal: var(--medal-silver-edge);
 }
 .ranking-table tr.ranking-row--bronze,
-.ranking-card--bronze,
-.compare-column--emphasis.compare-column--bronze .compare-column-header {
+.rank-row--bronze {
   --medal: var(--medal-bronze);
 }
 .ranking-table tr.ranking-row--gold,
 .ranking-table tr.ranking-row--silver,
-.ranking-table tr.ranking-row--bronze {
+.ranking-table tr.ranking-row--bronze,
+.rank-row--gold > .rank-row-main,
+.rank-row--silver > .rank-row-main,
+.rank-row--bronze > .rank-row-main {
   background: linear-gradient(90deg, color-mix(in srgb, var(--medal) var(--medal-tint), var(--card)) 0%, var(--card) 65%);
-}
-.ranking-card--gold,
-.ranking-card--silver,
-.ranking-card--bronze {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--medal) var(--medal-tint), var(--card)) 0%, var(--card) 70%);
-}
-.compare-column--emphasis.compare-column--gold .compare-column-header,
-.compare-column--emphasis.compare-column--silver .compare-column-header,
-.compare-column--emphasis.compare-column--bronze .compare-column-header {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--medal) var(--medal-tint), transparent) 0%, transparent 85%);
-  border-radius: 10px;
 }
 .ranking-table td.rank {
   width: 1%;
@@ -1184,13 +1304,6 @@ table.ranking-table {
 }
 .ranking-table td.verdict-cell {
   white-space: nowrap;
-}
-.compare-emphasis-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 14px;
-  margin: 8px 0 4px;
 }
 
 /* ที่ว่างแทนภาพป้ายที่ยังไม่เข้าใกล้จอ (LazyMount ใน Batch) — ขนาดเท่าภาพจริง */

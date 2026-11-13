@@ -173,9 +173,11 @@ export const PlateImage = memo(function PlateImage({
   const bgId = `plate-bg-${id}`;
   const clipId = `plate-clip-${id}`;
   const isAuction = variant === 'auction';
+  const Frame = compactWidth !== undefined ? 'span' : 'figure';
 
   return (
-    <figure
+    // ภาพย่อ = <span> (ไม่มี caption) ใส่ใน <button> ได้ถูกต้องตาม HTML (ป้ายเล็กที่กดเพื่อขยายใน Batch)
+    <Frame
       className={`plate-figure${compactWidth !== undefined ? ' plate-figure--compact' : ''}${className ? ` ${className}` : ''}`}
       style={compactWidth !== undefined ? ({ '--plate-max-width': `${compactWidth}px` } as React.CSSProperties) : undefined}
     >
@@ -299,6 +301,6 @@ export const PlateImage = memo(function PlateImage({
           </span>
         </figcaption>
       )}
-    </figure>
+    </Frame>
   );
 });

@@ -46,7 +46,7 @@ function inViewport(el: Element): boolean {
 
 export function LazyMount({ placeholder, children }: { placeholder: ReactNode; children: ReactNode }) {
   const [shown, setShown] = useState(() => typeof IntersectionObserver === 'undefined');
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
     if (shown || !el) return;
@@ -58,8 +58,9 @@ export function LazyMount({ placeholder, children }: { placeholder: ReactNode; c
   }, [shown]);
   if (shown) return <>{children}</>;
   return (
-    <div ref={ref} className="lazy-mount-placeholder">
+    // <span> (display: block ใน CSS) ใส่ใน <button> ได้ — ป้ายเล็กที่กดเพื่อขยาย
+    <span ref={ref} className="lazy-mount-placeholder">
       {placeholder}
-    </div>
+    </span>
   );
 }
