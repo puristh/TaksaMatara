@@ -76,7 +76,7 @@ const RESULTS = [
   '.ranking-panel .auction-tag',
   '.ranking-panel .popular-tag',
   '.score-figure__note', // "พบคู่เสีย"
-  '.rank-row-calc > summary', // "ดูรายละเอียดการคำนวณ"
+  // (เดิมมี '.rank-row-calc > summary' "ดูรายละเอียดการคำนวณ" — ตัดออกเพราะจอแคบเปิดกล่องวิเคราะห์ไว้เลย ไม่มี summary แล้ว)
   '.plate-copy-btn',
   '.plate-copy-status',
   // ป้ายกำกับ

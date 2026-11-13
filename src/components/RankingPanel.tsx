@@ -782,8 +782,8 @@ function RankResultRows({
             <div className="rank-row-detail-body">
               <PlateWithTags input={r.input} auction={r.auction} popular={r.popular} layout="column" />
               <CandidateBadges c={r} />
-              <details className="rank-row-calc">
-                <summary>ดูรายละเอียดการคำนวณ</summary>
+              {/* กล่องวิเคราะห์ 3 กล่องเปิดอยู่เลย เหมือนแถวรายละเอียดของตาราง (เดิมพับไว้ใน "ดูรายละเอียดการคำนวณ") */}
+              <div className="rank-row-calc">
                 <ModeDetailPanel
                   input={r.input}
                   mode1={r.mode1}
@@ -792,7 +792,7 @@ function RankResultRows({
                   onViewFiveElement={onViewFiveElement}
                   onViewAyatana6={onViewAyatana6}
                 />
-              </details>
+              </div>
               {onViewBirthdayCompat && <div className="rank-row-detail-actions">{birthdayLink(r)}</div>}
             </div>
           </CompactRankRow>
