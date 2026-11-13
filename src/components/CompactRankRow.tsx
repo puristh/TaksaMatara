@@ -105,6 +105,16 @@ export function ExpandButton({
   );
 }
 
+/** ป้ายอันดับ + ป้ายเล็กใต้ป้าย ("ช่อง N" ของโหมดเลขที่เล็งไว้) — ใช้ทั้งแถวกะทัดรัดและคอลัมน์อันดับของตาราง */
+export function RankWithLabel({ rank, label }: { rank: number; label?: string }) {
+  return (
+    <span className="rank-row-rank">
+      <RankBadge rank={rank} />
+      {label && <span className="rank-row-label">{label}</span>}
+    </span>
+  );
+}
+
 interface CompactRankRowProps {
   rank: number;
   input: PlateFields;
@@ -112,8 +122,6 @@ interface CompactRankRowProps {
   plateWidth: number;
   verdict: boolean;
   score: number;
-  /** ข้อความเล็กใต้คะแนน เช่น "พบคู่เสีย (Mode 2)" (โหมดเลขที่เล็งไว้) */
-  scoreNote?: ReactNode;
   /** ป้ายเล็กใต้ป้ายอันดับ เช่น "ช่อง 3" (โหมดเลขที่เล็งไว้) */
   label?: string;
   expanded: boolean;
@@ -134,7 +142,6 @@ export function CompactRankRow({
   plateWidth,
   verdict,
   score,
-  scoreNote,
   label,
   expanded,
   detailId,
@@ -144,10 +151,7 @@ export function CompactRankRow({
   return (
     <li className={`rank-row rank-row--${rankTier(rank)}${expanded ? ' is-open' : ''}`} data-ranking-row="">
       <div className="rank-row-main">
-        <span className="rank-row-rank">
-          <RankBadge rank={rank} />
-          {label && <span className="rank-row-label">{label}</span>}
-        </span>
+        <RankWithLabel rank={rank} label={label} />
         <span className="rank-row-plate">
           <PlateToggleButton
             input={input}
@@ -162,7 +166,7 @@ export function CompactRankRow({
         </span>
         <span className="rank-row-side">
           <VerdictPill verdict={verdict} />
-          <ScoreFigure score={score} rank={rank} note={scoreNote} />
+          <ScoreFigure score={score} rank={rank} />
         </span>
         <span className="rank-row-toggle">
           <ExpandButton expanded={expanded} controls={detailId} onToggle={onToggle} />

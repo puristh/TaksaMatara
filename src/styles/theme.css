@@ -14,6 +14,8 @@
   --good: #2e8b6e;
   --good-bg: #eaf6f0;
   --mid: #b8862b;
+  /* --mid เป็นตัวอักษรบน --mid-bg ได้แค่ 2.89:1 (โหมดสว่าง) — ผลลัพธ์ #batch ใช้ค่านี้แทน (5.03:1) ดู .ranking-panel */
+  --mid-text: #8a5f12;
   --mid-bg: #fbf1de;
   --bad: #b4442e;
   --bad-bg: #fbeae5;
@@ -57,6 +59,7 @@
     --good: #4fce9c;
     --good-bg: #17281f;
     --mid: #e3b462;
+    --mid-text: #e3b462;
     --mid-bg: #2e2717;
     --bad: #f2907a;
     --bad-bg: #301e1b;
@@ -83,6 +86,7 @@
   --good: #4fce9c;
   --good-bg: #17281f;
   --mid: #e3b462;
+  --mid-text: #e3b462;
   --mid-bg: #2e2717;
   --bad: #f2907a;
   --bad-bg: #301e1b;
@@ -404,11 +408,6 @@ h1 {
   font-weight: 600;
   color: var(--ink-soft);
   margin: 18px 0 12px;
-}
-.target-results-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
 }
 
 .limit-toggle-row {
@@ -799,6 +798,10 @@ table.ranking-table {
   color: var(--ink-soft);
   width: 3ch;
 }
+/* ป้ายอันดับ (+ "ช่อง N" ของโหมดเลขที่เล็งไว้) ในตาราง: จัดกลางแนวตั้งตามเซลล์ ไม่ใช้ padding-top ของแถวกะทัดรัด */
+.ranking-table .rank .rank-row-rank {
+  padding-top: 0;
+}
 /* เลขทะเบียน = ภาพป้ายย่อ (PlateImage compactWidth) + ข้อความ sr-only */
 .ranking-table .plate-cell {
   width: 1%;
@@ -842,6 +845,18 @@ table.ranking-table {
 .ranking-table .ranking-tags-cell {
   min-width: 7rem;
   max-width: 8.5rem;
+}
+/* ชื่อกลุ่มเลขประมูลตัดกลางคำไม่ได้ (auction-tag__cat) — ชื่อยาวสุด "เลขหาม/เลขหาบ (XYYX)" กว้างกว่า 8.5rem จนแท็กล้นคอลัมน์
+   min-width: min-content ชนะ max-width เมื่อขัดกัน → คอลัมน์กว้างพอชื่อที่ยาวที่สุดเสมอ · ขั้นต่ำ 7rem เดิมมาจากแถบสูง 0
+   กว้าง 7rem (::after) ซึ่งนับเป็น min-content ด้วย (ชื่อสั้นยังใช้ 7–8.5rem ตามเดิม) */
+.ranking-panel .ranking-table .ranking-tags-cell {
+  min-width: min-content;
+}
+.ranking-panel .ranking-table .ranking-tags-cell::after {
+  content: '';
+  width: 7rem;
+  height: 0;
+  margin-top: -4px; /* หักล้าง gap ของ flex ไม่ให้แถวสูงขึ้น */
 }
 .ranking-table .ranking-tags-cell .auction-tag {
   white-space: normal;
@@ -989,7 +1004,7 @@ table.ranking-table {
   margin: 0;
 }
 
-/* จอแคบ/ตัวอักษรใหญ่ + โหมด "เลขที่เล็งไว้": แถวกะทัดรัด (RankingPanel → chooseRankingLayout, CompactRankRow.tsx)
+/* จอแคบ/ตัวอักษรใหญ่ (ทั้งโหมดปกติและโหมด "เลขที่เล็งไว้"): แถวกะทัดรัด (RankingPanel → chooseRankingLayout, CompactRankRow.tsx)
    ขนาดตัดสินด้วย container query (calc px + rem) — ป้ายเล็กเป็น px คงที่ ส่วนอันดับ/verdict/คะแนนขยายตามขนาดตัวอักษร */
 .rank-rows {
   list-style: none;
@@ -1032,6 +1047,20 @@ table.ranking-table {
   font-size: 0.6875rem;
   color: var(--ink-soft);
   white-space: nowrap;
+}
+/* "ช่อง N" บนพื้นไล่สี medal (อันดับ 1–3): --ink-soft ได้ต่ำสุด 3.4:1 (โหมดมืด) → --ink */
+.rank-row--gold .rank-row-label,
+.rank-row--silver .rank-row-label,
+.rank-row--bronze .rank-row-label,
+.ranking-row--gold .rank-row-label,
+.ranking-row--silver .rank-row-label,
+.ranking-row--bronze .rank-row-label {
+  color: var(--ink);
+}
+/* badge/แท็ก "ปานกลาง" (--mid บน --mid-bg) ในผลลัพธ์ #batch: ใช้ --mid-text ให้ contrast ≥ 4.5:1 ทั้งสองธีม
+   (หน้าอื่นยังใช้ --mid เดิม — นอกขอบเขตงานนี้) */
+.ranking-panel {
+  --mid: var(--mid-text);
 }
 .rank-row-plate {
   grid-area: plate;

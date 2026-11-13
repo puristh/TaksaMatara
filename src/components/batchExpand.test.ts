@@ -169,8 +169,18 @@ describe('ผลที่แสดง: ตาราง (จอกว้าง) �
 describe('ผลที่แสดง: โหมด "เลขที่เล็งไว้"', () => {
   const tails = ['1234', '9999', '12', '15', '5555', '', '', '', '', ''];
   const ranked = rankTargetTails(1, ['ก', 'ข'], tails);
-  it('ทุกแถวเป็นแถวกะทัดรัด: ป้ายเล็ก (ปุ่ม) + อันดับ medal ตาม rank · ยุบอยู่ไม่มีการ์ดเต็ม', () => {
-    const html = render('table', [], { targetTails: tails }); // โหมดนี้ไม่ใช้ตาราง ไม่ว่าจอกว้างแค่ไหน
+  // เดิม: render('table') ของโหมดนี้ต้องไม่มี <table (แถวกะทัดรัดทุกความกว้างจอ) — batch-target-unify: ผู้ใช้สั่งให้โหมดนี้ใช้
+  // ตารางเดียวกับโหมดปกติเมื่อจอกว้าง จึงตรวจทั้งสองรูปแบบ: ตาราง (จอกว้าง) และแถวกะทัดรัด (จอแคบ)
+  it('จอกว้างเป็นตารางเดียวกับโหมดปกติ / จอแคบเป็นแถวกะทัดรัด: ป้ายเล็ก (ปุ่ม) + อันดับ medal ตาม rank · ยุบอยู่ไม่มีการ์ดเต็ม', () => {
+    const table = render('table', [], { targetTails: tails });
+    expect(table).toContain('<table class="ranking-table">');
+    expect(plateExpanded(table)).toEqual(ranked.map(() => false));
+    expect([...table.matchAll(/<tr data-ranking-row="" class="ranking-row--([a-z]+)"/g)].map((m) => m[1])).toEqual(
+      ranked.map((r) => rankTier(r.rank)),
+    );
+    expect(table).not.toContain('detail-grid');
+    expectControlsResolve(table);
+    const html = render('compact', [], { targetTails: tails });
     expect(html).not.toContain('<table');
     expect(plateExpanded(html)).toEqual(ranked.map(() => false));
     const toggles = [...html.matchAll(/aria-label="ดูรายละเอียดเลข ([^"]+)"/g)].map((m) => m[1]);
@@ -180,7 +190,9 @@ describe('ผลที่แสดง: โหมด "เลขที่เล็
     expect(html).not.toContain('detail-grid');
     expectControlsResolve(html);
   });
-  it('ขยายช่องที่ 2 และ 4: ป้ายใหญ่ + คัดลอก + ลิงก์การคำนวณ (3 Mode + ข้อมูลประกอบ)', () => {
+  // ชื่อเดิม "(3 Mode + ข้อมูลประกอบ)" — batch-target-unify: ส่วนที่ขยายเหมือนโหมดปกติ จึงไม่มีบล็อก "ข้อมูลประกอบ" (อายตนะ6/ธาตุจีน) แยกแล้ว
+  // (อายตนะ6 ยังอยู่ในแถว ayatana6-preview-row ของ ModeDetailPanel และลิงก์ธาตุจีนเหมือนโหมดปกติ) — expectation เดิมไม่เปลี่ยน
+  it('ขยายช่องที่ 2 และ 4: ป้ายใหญ่ + คัดลอก + ลิงก์การคำนวณ (3 Mode)', () => {
     const html = render('compact', ['target-1', 'target-3'], { targetTails: tails });
     expect(plateExpanded(html)).toEqual(ranked.map((r) => r.slotIndex === 1 || r.slotIndex === 3));
     expect(count(html, /class="plate-copy-btn"/g)).toBe(2);

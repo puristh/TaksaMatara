@@ -107,7 +107,13 @@ describe('โหมด "เลขที่เล็งไว้" และกา
     expect(scores).toEqual(ranked.map((r) => r.finalScore));
     const labels = [...html.matchAll(/<span class="rank-row-label">([^<]+)<\/span>/g)].map((m) => m[1]);
     expect(labels).toEqual(ranked.map((r) => `ช่อง ${r.slotIndex + 1}`));
-    expect(count(html, /พบคู่เสีย \(Mode 2\)/g)).toBe(ranked.filter((r) => r.hasBadPair).length);
+    // เดิม: ข้อความ "พบคู่เสีย (Mode 2)" ใต้คะแนนทุกแถวที่ hasBadPair — batch-target-unify: เงื่อนไขเดียวกับ badge
+    // "คู่เลขที่ปรากฏ: พบคู่เสีย" (mode2.tier === 'tier4') จึงแสดงเป็น badge ปกติแทน (ไม่ซ้ำสองที่) แถวกะทัดรัดที่ยุบอยู่ไม่มีทั้งคู่
+    expect(html).not.toContain('พบคู่เสีย (Mode 2)');
+    expect(ranked.some((r) => r.hasBadPair)).toBe(true);
+    const tableHtml = renderPanel('table', { ...state(false), targetTails: [...tails, '', '', '', '', ''] });
+    expect(count(tableHtml, /คู่เลขที่ปรากฏ: พบคู่เสีย/g)).toBe(ranked.filter((r) => r.hasBadPair).length);
+    expect(tableHtml).not.toContain('พบคู่เสีย (Mode 2)');
     expect(html).not.toContain('compare-column');
   });
   it('หน้าเปรียบเทียบ: แสดงแบบเดิม (ไม่มีป้ายอันดับ medal)', () => {

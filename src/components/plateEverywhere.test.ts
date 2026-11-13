@@ -53,7 +53,9 @@ describe('ภาพป้ายทุกที่ที่เป็นการ�
     const html = renderToStaticMarkup(createElement(RankingPanel as (p: { restoreState?: BatchReturnState }) => ReturnType<typeof RankingPanel>, { restoreState }));
     // เดิม: การ์ดเต็มทุกช่อง (expectPlateCards 3 ใบ + แท็กเลขประมูล) — batch-emphasis รอบ 2: แถวกะทัดรัด ป้ายเล็กทุกช่อง
     // ป้ายใหญ่ + ปุ่มคัดลอก + "ภาพจำลอง…" + แท็กอยู่ในส่วนที่ขยาย (เปิดไว้ทุกช่องแล้วต้องครบเหมือนเดิม)
-    expect(html).toContain('target-results-list');
+    // เดิม: 'target-results-list' (แถวกะทัดรัดทุกความกว้างจอ) — batch-target-unify: โหมดนี้ใช้ตารางเดียวกับโหมดปกติเมื่อจอกว้าง
+    // (render ไม่มี DOM = ตาราง) จึงตรวจตารางแทน ส่วนจำนวนภาพป้าย/ปุ่มคัดลอกตรวจเหมือนเดิม
+    expect(html).toContain('<table class="ranking-table">');
     expect(count(html, /<svg class="plate-image /g)).toBe(3);
     expect(count(html, /plate-figure--compact/g)).toBe(3);
     expect(html).not.toMatch(/class="plate"/);

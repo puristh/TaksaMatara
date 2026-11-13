@@ -4,14 +4,17 @@ import { generateTopCandidates } from '../engine/ranking';
 import type { RankingCandidate, TailLength } from '../engine/ranking';
 import { badgeClass, badgeIcon, popularStars } from './ResultCard';
 import { ModeDetailPanel } from './ModeDetailPanel';
-import { ComparisonSupplementary } from './ComparisonResultCard';
 import { PlateImage } from './PlateImage';
 import { PlateWithTags } from './PlateWithTags';
 import { plateCopyText } from './plateCopy';
 import { plateProvinceNote, plateVariantFor, resolvePlateProvinceLabel } from './plateLayout';
-import { RankBadge, rankTier, ScoreFigure, VerdictPill } from './RankEmphasis';
-import { CompactRankRow, ExpandButton, PlateToggleButton } from './CompactRankRow';
+import { rankTier, ScoreFigure, VerdictPill } from './RankEmphasis';
+import { CompactRankRow, ExpandButton, PlateToggleButton, RankWithLabel } from './CompactRankRow';
 import { comparePlates } from '../engine/comparePlates';
+import { combineVerdictAndBadges } from '../engine/combine';
+import { detectAuctionNumber } from '../engine/auctionNumber';
+import { detectPopularNumber } from '../engine/popularNumber';
+import type { AuctionNumberInfo, Badge, PopularNumberInfo } from '../engine/types';
 import type { ComparisonResult } from '../engine/comparePlates';
 import type { PlateInput } from '../engine';
 import { formatPlateText } from '../engine/plateText';
@@ -61,12 +64,20 @@ export const RANKING_NARROW_MAX_PX = 480;
  * ความกว้างพื้นที่ผลลัพธ์ขั้นต่ำ (rem) ที่ใช้ตารางได้โดยไม่เลื่อนแนวนอน — แคบกว่านี้ใช้แถวกะทัดรัด
  * วัดเป็น rem (ไม่ใช่ px) เพราะตารางกว้างตามขนาดตัวอักษร: ตัวอักษร 175% ใช้แถวกะทัดรัดทุกขนาดจอ (กรอบแอปกว้างสุด 880px)
  * วัดจากตารางจริง (ป้ายเล็ก 150px, ป้ายอันดับ/verdict 80%, ข้อความขนาดเดียวกับส่วนบนของหน้า, badge ไม่ตัดบรรทัด,
- * 30 แถว รวมเลขประมูล + เลขโปรด 4 ตัว, หมวดอักษร/เลขหน้าหลายแบบ, ชื่อกลุ่มเลขประมูลไม่ตัดกลางคำ): ตารางกว้างน้อยสุด 871px + ขอบกรอบ 16px = 55.4rem
+ * 30 แถว รวมเลขประมูล + เลขโปรด 4 ตัว, หมวดอักษร/เลขหน้าหลายแบบ, ชื่อกลุ่มเลขประมูลไม่ตัดกลางคำและไม่ล้นคอลัมน์): ตารางกว้างน้อยสุด
+ * 885px (ชื่อกลุ่มยาวสุด "เลขหาม/เลขหาบ (XYYX)" — รอบ 4 วัดได้ 871px เพราะแท็กนี้ล้นคอลัมน์ไป 14px) + ขอบกรอบ 16px = 56.3rem
  * → 56.5rem (904px, ~961px ที่ตัวอักษร 100%) จุดสลับเดิมก่อน type scale — รอบ type scale (ข้อความ 15px) ตารางต้องการ 940px
  * จึงเคยขยับเป็น 60rem; ข้อความกลับขนาดเดิมแล้วตารางแคบลงพอ จึงกลับมาที่ 56.5rem (ไม่ได้ย่อเนื้อหาให้พอดี)
  * พื้นที่ผลลัพธ์แบบตารางกว้างได้ถึง RANKING_WIDE_MAX_PX (ดู .ranking-wide ใน theme.css)
  */
 export const RANKING_TABLE_MIN_REM = 56.5;
+/**
+ * เมื่อมีแถว verdict "ไม่ควรใช้" (เกิดได้เฉพาะโหมดเลขที่เล็งไว้ — โหมดปกติคัดเลขที่ Mode 1 ไม่ดีออกตั้งแต่ engine):
+ * pill "ไม่ควรใช้" กว้างกว่า "ใช้ได้" 25px และตัดบรรทัดไม่ได้ ตารางกรณีหนักสุด (ไม่ควรใช้ + เลขประมูล "เลขหาม/เลขหาบ (XYYX)")
+ * กว้างน้อยสุด 910px + ขอบกรอบ 16px = 57.9rem → 58rem (928px, ~985px ที่ตัวอักษร 100%)
+ * จอแคบกว่านี้ใช้แถวกะทัดรัด (ไม่ย่อเนื้อหาและไม่ให้ตารางเลื่อนแนวนอน)
+ */
+export const RANKING_TABLE_MIN_REM_WITH_BAD_VERDICT = 58;
 
 /** 'table' = ตาราง (จอกว้าง) · 'compact' = แถวกะทัดรัด (จอแคบ/ตัวอักษรใหญ่) */
 export type RankingLayout = 'table' | 'compact';
@@ -74,8 +85,17 @@ export type RankingLayout = 'table' | 'compact';
 export const RANKING_WIDE_MAX_PX = 1040;
 
 /** เลือกตาราง/แถวกะทัดรัดจากความกว้างพื้นที่ผลลัพธ์ (px) และขนาดตัวอักษรราก (px) */
-export function chooseRankingLayout(containerPx: number, rootFontPx: number): RankingLayout {
-  return containerPx / rootFontPx >= RANKING_TABLE_MIN_REM ? 'table' : 'compact';
+export function chooseRankingLayout(
+  containerPx: number,
+  rootFontPx: number,
+  minRem: number = RANKING_TABLE_MIN_REM,
+): RankingLayout {
+  return containerPx / rootFontPx >= minRem ? 'table' : 'compact';
+}
+
+/** ความกว้างขั้นต่ำของตาราง (rem) ตามแถวที่แสดง — ดู RANKING_TABLE_MIN_REM_WITH_BAD_VERDICT */
+export function tableMinRemFor(rows: readonly { verdict: boolean }[]): number {
+  return rows.some((r) => !r.verdict) ? RANKING_TABLE_MIN_REM_WITH_BAD_VERDICT : RANKING_TABLE_MIN_REM;
 }
 
 /** ความกว้างป้ายเล็กในแถวกะทัดรัดตามความกว้างพื้นที่ผลลัพธ์ (px) — ตารางใช้ RANKING_ROW_PLATE_WIDTH เสมอ */
@@ -92,25 +112,25 @@ interface RankingLayoutState {
   plateWidth: number;
 }
 
-function measureLayout(containerPx: number, fontPx: number): RankingLayoutState {
-  return { layout: chooseRankingLayout(containerPx, fontPx), plateWidth: compactPlateWidth(containerPx) };
+function measureLayout(containerPx: number, fontPx: number, minRem: number): RankingLayoutState {
+  return { layout: chooseRankingLayout(containerPx, fontPx, minRem), plateWidth: compactPlateWidth(containerPx) };
 }
 
 /**
  * ตาราง/แถวกะทัดรัดตามความกว้างจริงของแผง (ResizeObserver) และขนาดตัวอักษร (style ของ <html> ที่ useFontScale ตั้ง)
  * วัดใน useLayoutEffect จึงสลับก่อน paint แรก · ค่าตั้งต้นประมาณจากความกว้างหน้าต่าง · ไม่มี DOM (SSR/เทสต์) = ตาราง
  */
-function useRankingLayout(ref: RefObject<HTMLElement>, forced?: RankingLayout): RankingLayoutState {
+function useRankingLayout(ref: RefObject<HTMLElement>, minRem: number, forced?: RankingLayout): RankingLayoutState {
   const [state, setState] = useState<RankingLayoutState>(() =>
     typeof window === 'undefined'
       ? { layout: 'table', plateWidth: RANKING_ROW_PLATE_WIDTH }
-      : measureLayout(Math.min(window.innerWidth - 57, RANKING_WIDE_MAX_PX), rootFontPx()),
+      : measureLayout(Math.min(window.innerWidth - 57, RANKING_WIDE_MAX_PX), rootFontPx(), minRem),
   );
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     const update = () => {
-      const next = measureLayout(el.clientWidth, rootFontPx());
+      const next = measureLayout(el.clientWidth, rootFontPx(), minRem);
       setState((prev) => (prev.layout === next.layout && prev.plateWidth === next.plateWidth ? prev : next));
     };
     update();
@@ -123,7 +143,7 @@ function useRankingLayout(ref: RefObject<HTMLElement>, forced?: RankingLayout): 
       ro.disconnect();
       mo.disconnect();
     };
-  }, [ref]);
+  }, [ref, minRem]);
   return forced ? { ...state, layout: forced } : state;
 }
 
@@ -135,8 +155,8 @@ export function toggleExpandedKey(prev: ReadonlySet<string>, key: string): Set<s
   return next;
 }
 
-/** Badge (คู่เลข / ผลรวม / เลขโปรด) ของหนึ่งทะเบียน — ใช้ทั้งแถวตารางและการ์ด */
-function CandidateBadges({ c }: { c: RankingCandidate }) {
+/** Badge (คู่เลข / ผลรวม / เลขโปรด) ของหนึ่งทะเบียน — ใช้ทั้งแถวตารางและส่วนที่ขยายของแถวกะทัดรัด (ทั้งสองโหมด) */
+function CandidateBadges({ c }: { c: Pick<RankingCandidate, 'badges' | 'matchedFavoriteDigits'> }) {
   return (
     <div className="badges-cell">
       {c.badges.map((badge, bi) => (
@@ -314,7 +334,6 @@ export function RankingPanel({
 }: RankingPanelProps = {}) {
   // วัดความกว้างที่ตารางใช้ได้จริง (.ranking-wide-probe กว้างเท่าพื้นที่ผลลัพธ์แบบตาราง)
   const probeRef = useRef<HTMLDivElement>(null);
-  const { layout: resultsLayout, plateWidth: compactWidthPx } = useRankingLayout(probeRef, forcedLayout);
   // id ของส่วนที่ขยาย (aria-controls ของป้ายเล็กและปุ่ม "ดูรายละเอียด")
   const detailIdBase = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const fieldDefaults = resolveBatchFormDefaults(restoreState);
@@ -394,6 +413,17 @@ export function RankingPanel({
 
   const activeCandidates = resultsByLength ? resultsByLength[activeTail] : [];
 
+  // ทั้งสองโหมดแปลงเป็น RankRowData ชุดเดียวกันแล้วส่งเข้า RankResultRows ตัวเดียวกัน
+  const normalRows = activeCandidates.map((c, i) =>
+    candidateRowData(c, i, `${detailIdBase}-${activeTail}-${c.tailDigits}`),
+  );
+  const targetRows = (targetResults ?? []).map((r) => targetRowData(r, `${detailIdBase}-target-${r.slotIndex}`));
+  const { layout: resultsLayout, plateWidth: compactWidthPx } = useRankingLayout(
+    probeRef,
+    tableMinRemFor(isTargetMode ? targetRows : normalRows),
+    forcedLayout,
+  );
+
   // แนบไปกับลิงก์ไปหน้าธาตุจีน/อายตนะ6/เช็ควันเกิด เพื่อให้ปุ่ม "กลับ" ของหน้าเหล่านั้นกลับมาที่
   // หน้านี้พร้อม restore ฟอร์มทั้งหมด แทนที่จะ hardcode กลับไปหน้า "วิเคราะห์เลขเดี่ยว" เสมอ
   const currentReturnContext: ReturnContext = useMemo(
@@ -419,6 +449,20 @@ export function RankingPanel({
       targetInputs,
     ],
   );
+
+  const rowsProps = {
+    layout: resultsLayout,
+    compactWidthPx,
+    expandedKeys: expandedTails,
+    onToggle: toggleExpanded,
+    onViewFiveElement: onViewFiveElement
+      ? (input: DetailModeInput) => onViewFiveElement(input, currentReturnContext)
+      : undefined,
+    onViewAyatana6: onViewAyatana6 ? (input: DetailModeInput) => onViewAyatana6(input, currentReturnContext) : undefined,
+    onViewBirthdayCompat: onViewBirthdayCompat
+      ? (input: DetailModeInput) => onViewBirthdayCompat(input, currentReturnContext)
+      : undefined,
+  };
 
   return (
     <div className="ranking-panel">
@@ -573,292 +617,297 @@ export function RankingPanel({
       </div>
 
       {isTargetMode ? (
-        <div className="target-results">
-          {!isValid ? (
-            <div className="ranking-empty">กรอกข้อมูลด้านบนให้ครบก่อนจึงจะจัดอันดับได้</div>
-          ) : !targetResults || targetResults.length === 0 ? (
-            <div className="ranking-empty">
-              ยังไม่มีเลขท้ายที่ถูกรูปแบบ (ตัวเลข 2-4 หลัก) ให้จัดอันดับ
+        !isValid ? (
+          <div className="ranking-empty">กรอกข้อมูลด้านบนให้ครบก่อนจึงจะจัดอันดับได้</div>
+        ) : targetRows.length === 0 ? (
+          <div className="ranking-empty">ยังไม่มีเลขท้ายที่ถูกรูปแบบ (ตัวเลข 2-4 หลัก) ให้จัดอันดับ</div>
+        ) : (
+          // ตัวแสดงผลชุดเดียวกับโหมดปกติ (RankResultRows) — ต่างกันเฉพาะหัวข้อแทนแท็บ และ "ช่อง N" ใต้ป้ายอันดับ
+          <div className={`target-results${resultsLayout === 'table' ? ' ranking-wide' : ''}`}>
+            <div className="target-results-heading">
+              จัดอันดับเลขที่เล็งไว้ {targetRows.length} ตัว — ดีที่สุดไปแย่ที่สุด
+            </div>
+            <p className="ranking-plate-note">ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง</p>
+            <RankResultRows rows={targetRows} {...rowsProps} />
+          </div>
+        )
+      ) : (
+        <div className={resultsLayout === 'table' && normalRows.length > 0 ? 'ranking-wide' : undefined}>
+          <div className="ranking-tabs">
+            {TAIL_LENGTHS.map((len) => (
+              <button
+                key={len}
+                type="button"
+                className={activeTail === len ? 'active' : ''}
+                onClick={() => setActiveTail(len)}
+              >
+                Top {rowLimit} เลขท้าย {TAIL_LENGTH_UNIT[len]}
+              </button>
+            ))}
+          </div>
+          {normalRows.length > 0 && <p className="ranking-plate-note">ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง</p>}
+          {!resultsByLength ? (
+            <div className="ranking-table-wrap">
+              <div className="ranking-empty">กรอกข้อมูลด้านบนให้ครบก่อนจึงจะจัดอันดับได้</div>
+            </div>
+          ) : normalRows.length === 0 ? (
+            <div className="ranking-table-wrap">
+              <div className="ranking-empty">ไม่พบเลขท้ายที่ผ่านเกณฑ์ในความยาวนี้</div>
             </div>
           ) : (
-            <>
-              <div className="target-results-heading">
-                จัดอันดับเลขที่เล็งไว้ {targetResults.length} ตัว — ดีที่สุดไปแย่ที่สุด
-              </div>
-              <p className="ranking-plate-note">ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง</p>
-              {/* แถวกะทัดรัดทุกความกว้างจอ — กดป้ายเล็กหรือ "ดูรายละเอียด" เพื่อดูป้ายใหญ่ + การคำนวณ */}
-              <ol className="rank-rows target-results-list">
-                {targetResults.map((result) => {
-                  const key = `target-${result.slotIndex}`;
-                  const detailId = `${detailIdBase}-target-${result.slotIndex}`;
-                  const isExpanded = expandedTails.has(key);
-                  return (
-                    <CompactRankRow
-                      key={result.slotIndex}
-                      rank={result.rank}
-                      label={`ช่อง ${result.slotIndex + 1}`}
-                      input={result.input}
-                      plateWidth={compactWidthPx}
-                      verdict={result.mode1.verdict}
-                      score={result.finalScore}
-                      scoreNote={result.hasBadPair && <span className="score-figure__note">พบคู่เสีย (Mode 2)</span>}
-                      expanded={isExpanded}
-                      detailId={detailId}
-                      onToggle={() => toggleExpanded(key)}
-                    >
-                      <div className="rank-row-detail-body">
-                        <PlateWithTags input={result.input} layout="column" />
-                        <details className="rank-row-calc">
-                          <summary>ดูรายละเอียดการคำนวณ</summary>
-                          <ModeDetailPanel
-                            input={result.input}
-                            mode1={result.mode1}
-                            mode2={result.mode2}
-                            mode3={result.mode3}
-                            onViewFiveElement={
-                              onViewFiveElement ? (input) => onViewFiveElement(input, currentReturnContext) : undefined
-                            }
-                            onViewAyatana6={
-                              onViewAyatana6 ? (input) => onViewAyatana6(input, currentReturnContext) : undefined
-                            }
-                          />
-                          <ComparisonSupplementary result={result} />
-                        </details>
-                        {onViewBirthdayCompat && (
-                          <div className="rank-row-detail-actions">
-                            <button
-                              type="button"
-                              className="birthday-compat-link"
-                              onClick={() => onViewBirthdayCompat(result.input, currentReturnContext)}
-                            >
-                              เช็คกับวันเกิด →
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </CompactRankRow>
-                  );
-                })}
-              </ol>
-            </>
+            <RankResultRows rows={normalRows} {...rowsProps} />
           )}
         </div>
-      ) : (
-        <>
+      )}
+    </div>
+  );
+}
 
-          <div
-            className={
-              resultsLayout === 'table' && resultsByLength && activeCandidates.length > 0 ? 'ranking-wide' : undefined
-            }
+/**
+ * ข้อมูลหนึ่งแถวที่ตัวแสดงผลใช้ — โหมดปกติ (Top N) และโหมดเลขที่เล็งไว้ใช้ชุดเดียวกันทุกช่อง
+ * ต่างกันได้เฉพาะ label ("ช่อง N" ของโหมดเลขที่เล็งไว้)
+ */
+export interface RankRowData {
+  /** key ของส่วนที่ขยาย: เลขท้าย (Top N) หรือ "target-<index ช่อง>" */
+  key: string;
+  detailId: string;
+  rank: number;
+  label?: string;
+  input: PlateInput;
+  mode1: RankingCandidate['mode1'];
+  mode2: RankingCandidate['mode2'];
+  mode3: RankingCandidate['mode3'];
+  auction: AuctionNumberInfo;
+  popular: PopularNumberInfo;
+  verdict: boolean;
+  badges: Badge[];
+  finalScore: number;
+  matchedFavoriteDigits: string[];
+}
+
+/** แถวโหมดปกติ: ทุกช่องมาจาก generateTopCandidates ตรงๆ */
+export function candidateRowData(c: RankingCandidate, index: number, detailId: string): RankRowData {
+  return {
+    key: c.tailDigits,
+    detailId,
+    rank: index + 1,
+    input: c.input,
+    mode1: c.mode1,
+    mode2: c.mode2,
+    mode3: c.mode3,
+    auction: c.auction,
+    popular: c.popular,
+    verdict: c.verdict,
+    badges: c.badges,
+    finalScore: c.finalScore,
+    matchedFavoriteDigits: c.matchedFavoriteDigits,
+  };
+}
+
+/**
+ * แถวโหมดเลขที่เล็งไว้: อันดับ/คะแนน/mode1-3 มาจาก comparePlates (rankTargetTails) ตามเดิม ส่วน verdict/badge/
+ * เลขประมูล/เลขสวยเรียกฟังก์ชัน engine ตัวเดียวกับที่ generateTopCandidates ใช้ (combineVerdictAndBadges,
+ * detectAuctionNumber, detectPopularNumber) กับ mode1-3 ชุดเดียวกัน — ไม่มีการเดาค่าและไม่แก้ engine
+ * verdict = mode1.tier !== 'bad' ซึ่งเท่ากับ mode1.verdict ที่โหมดนี้ใช้เดิม · เลขโปรด: โหมดนี้ล็อกช่องเลขโปรด จึงว่างเสมอ
+ */
+export function targetRowData(result: TargetRankedResult, detailId: string): RankRowData {
+  const { verdict, badges } = combineVerdictAndBadges(result.mode1, result.mode2, result.mode3);
+  return {
+    key: `target-${result.slotIndex}`,
+    detailId,
+    rank: result.rank,
+    label: `ช่อง ${result.slotIndex + 1}`,
+    input: result.input,
+    mode1: result.mode1,
+    mode2: result.mode2,
+    mode3: result.mode3,
+    auction: detectAuctionNumber(result.input.tailDigits),
+    popular: detectPopularNumber(result.input.tailDigits),
+    verdict,
+    badges,
+    finalScore: result.finalScore,
+    matchedFavoriteDigits: [],
+  };
+}
+
+type BoundDetailHandler = ((input: DetailModeInput) => void) | undefined;
+
+interface RankResultRowsProps {
+  rows: RankRowData[];
+  layout: RankingLayout;
+  compactWidthPx: number;
+  expandedKeys: ReadonlySet<string>;
+  onToggle: (key: string) => void;
+  onViewFiveElement: BoundDetailHandler;
+  onViewAyatana6: BoundDetailHandler;
+  onViewBirthdayCompat: BoundDetailHandler;
+}
+
+/** ตาราง (จอกว้าง) หรือแถวกะทัดรัด (จอแคบ/ตัวอักษรใหญ่) — ใช้ทั้งโหมดปกติและโหมดเลขที่เล็งไว้ */
+function RankResultRows({
+  rows,
+  layout,
+  compactWidthPx,
+  expandedKeys,
+  onToggle,
+  onViewFiveElement,
+  onViewAyatana6,
+  onViewBirthdayCompat,
+}: RankResultRowsProps) {
+  const birthdayLink = (r: RankRowData) =>
+    onViewBirthdayCompat && (
+      <button type="button" className="birthday-compat-link" onClick={() => onViewBirthdayCompat(r.input)}>
+        เช็คกับวันเกิด →
+      </button>
+    );
+
+  if (layout === 'compact') {
+    // แถวกะทัดรัด (อันดับ | ป้ายเล็ก | verdict + คะแนน) — badge/ป้ายพิเศษ/ป้ายใหญ่อยู่ในส่วนที่ขยาย
+    return (
+      <ol className="rank-rows">
+        {rows.map((r) => (
+          <CompactRankRow
+            key={r.key}
+            rank={r.rank}
+            label={r.label}
+            input={r.input}
+            auction={r.auction}
+            plateWidth={compactWidthPx}
+            verdict={r.verdict}
+            score={r.finalScore}
+            expanded={expandedKeys.has(r.key)}
+            detailId={r.detailId}
+            onToggle={() => onToggle(r.key)}
           >
-            <div className="ranking-tabs">
-              {TAIL_LENGTHS.map((len) => (
-                <button
-                  key={len}
-                  type="button"
-                  className={activeTail === len ? 'active' : ''}
-                  onClick={() => setActiveTail(len)}
-                >
-                  Top {rowLimit} เลขท้าย {TAIL_LENGTH_UNIT[len]}
-                </button>
-              ))}
+            <div className="rank-row-detail-body">
+              <PlateWithTags input={r.input} auction={r.auction} popular={r.popular} layout="column" />
+              <CandidateBadges c={r} />
+              <details className="rank-row-calc">
+                <summary>ดูรายละเอียดการคำนวณ</summary>
+                <ModeDetailPanel
+                  input={r.input}
+                  mode1={r.mode1}
+                  mode2={r.mode2}
+                  mode3={r.mode3}
+                  onViewFiveElement={onViewFiveElement}
+                  onViewAyatana6={onViewAyatana6}
+                />
+              </details>
+              {onViewBirthdayCompat && <div className="rank-row-detail-actions">{birthdayLink(r)}</div>}
             </div>
-            {resultsByLength && activeCandidates.length > 0 && (
-              <p className="ranking-plate-note">ภาพป้ายเป็นภาพจำลอง ไม่ใช่ป้ายจริง</p>
-            )}
-            {!resultsByLength ? (
-              <div className="ranking-table-wrap">
-                <div className="ranking-empty">กรอกข้อมูลด้านบนให้ครบก่อนจึงจะจัดอันดับได้</div>
-              </div>
-            ) : activeCandidates.length === 0 ? (
-              <div className="ranking-table-wrap">
-                <div className="ranking-empty">ไม่พบเลขท้ายที่ผ่านเกณฑ์ในความยาวนี้</div>
-              </div>
-            ) : resultsLayout === 'compact' ? (
-              // จอแคบ/ตัวอักษรใหญ่: แถวกะทัดรัด (อันดับ | ป้ายเล็ก | verdict + คะแนน) — badge/ป้ายพิเศษ/ป้ายใหญ่อยู่ในส่วนที่ขยาย
-              <ol className="rank-rows">
-                {activeCandidates.map((c, i) => {
-                  const isExpanded = expandedTails.has(c.tailDigits);
-                  return (
-                    <CompactRankRow
-                      key={c.tailDigits}
-                      rank={i + 1}
-                      input={c.input}
-                      auction={c.auction}
-                      plateWidth={compactWidthPx}
-                      verdict={c.verdict}
-                      score={c.finalScore}
+          </CompactRankRow>
+        ))}
+      </ol>
+    );
+  }
+
+  return (
+    <div className="ranking-table-wrap">
+      <table className="ranking-table">
+        <thead>
+          <tr>
+            <th>อันดับ</th>
+            <th>เลขทะเบียนเต็ม</th>
+            <th>Verdict</th>
+            <th className="ranking-badges-col">Badge (คู่เลขที่ปรากฏ / ผลรวมตัวเลข / เลขโปรด)</th>
+            <th>คะแนนรวม</th>
+            <th>ป้ายพิเศษ</th>
+            <th className="ranking-actions-col" aria-label="การดำเนินการ"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const isExpanded = expandedKeys.has(r.key);
+            return (
+              <Fragment key={r.key}>
+                <tr data-ranking-row="" className={`ranking-row--${rankTier(r.rank)}`}>
+                  <td className="rank">
+                    <RankWithLabel rank={r.rank} label={r.label} />
+                  </td>
+                  <td className="plate-cell">
+                    {/* ป้ายเล็กเป็นปุ่มขยาย (ผลเหมือน "ดูรายละเอียด") ไม่มี caption/ปุ่มคัดลอก — ประโยค "ภาพจำลอง" อยู่เหนือตารางครั้งเดียว
+                        ข้อความเลขทะเบียนเก็บไว้แบบ sr-only ให้ค้นหา (Ctrl+F) */}
+                    <PlateToggleButton
+                      input={r.input}
+                      auction={r.auction}
+                      widthPx={RANKING_ROW_PLATE_WIDTH}
                       expanded={isExpanded}
-                      detailId={`${detailIdBase}-${activeTail}-${c.tailDigits}`}
-                      onToggle={() => toggleExpanded(c.tailDigits)}
-                    >
-                      <div className="rank-row-detail-body">
-                        <PlateWithTags input={c.input} auction={c.auction} popular={c.popular} layout="column" />
-                        <CandidateBadges c={c} />
-                        <details className="rank-row-calc">
-                          <summary>ดูรายละเอียดการคำนวณ</summary>
-                          <ModeDetailPanel
-                            input={c.input}
-                            mode1={c.mode1}
-                            mode2={c.mode2}
-                            mode3={c.mode3}
-                            onViewFiveElement={
-                              onViewFiveElement ? (input) => onViewFiveElement(input, currentReturnContext) : undefined
-                            }
-                            onViewAyatana6={
-                              onViewAyatana6 ? (input) => onViewAyatana6(input, currentReturnContext) : undefined
-                            }
-                          />
-                        </details>
-                        {onViewBirthdayCompat && (
-                          <div className="rank-row-detail-actions">
-                            <button
-                              type="button"
-                              className="birthday-compat-link"
-                              onClick={() => onViewBirthdayCompat(c.input, currentReturnContext)}
-                            >
-                              เช็คกับวันเกิด →
-                            </button>
-                          </div>
+                      controls={r.detailId}
+                      onToggle={() => onToggle(r.key)}
+                    />
+                    <span className="sr-only">{formatPlateText(r.input)}</span>
+                  </td>
+                  <td className="verdict-cell">
+                    <VerdictPill verdict={r.verdict} />
+                  </td>
+                  <td className="ranking-badges-col">
+                    <CandidateBadges c={r} />
+                  </td>
+                  <td className="score-cell">
+                    <ScoreFigure score={r.finalScore} rank={r.rank} />
+                  </td>
+                  <td>
+                    {r.auction.isAuction || r.popular.isPopular ? (
+                      <div className="ranking-tags-cell">
+                        {r.auction.isAuction && (
+                          <span className="auction-tag">
+                            {/* "● เลขประมูล" และชื่อกลุ่มแต่ละชื่อไม่ตัดกลางคำ (เช่น "เลขคู่/เลขเบิ้ล") — ตัดบรรทัดได้เฉพาะระหว่างส่วน */}
+                            <span className="auction-tag__cat">● เลขประมูล</span>{' '}
+                            {r.auction.categories.map((cat, ci) => (
+                              <Fragment key={cat}>
+                                {ci > 0 && ', '}
+                                <span className="auction-tag__cat">{cat}</span>
+                              </Fragment>
+                            ))}
+                          </span>
+                        )}
+                        {r.popular.isPopular && (
+                          <span className="popular-tag">เลขสวย {popularStars(r.popular.weight)}</span>
                         )}
                       </div>
-                    </CompactRankRow>
-                  );
-                })}
-              </ol>
-            ) : (
-              <div className="ranking-table-wrap">
-                <table className="ranking-table">
-                  <thead>
-                    <tr>
-                      <th>อันดับ</th>
-                      <th>เลขทะเบียนเต็ม</th>
-                      <th>Verdict</th>
-                      <th className="ranking-badges-col">Badge (คู่เลขที่ปรากฏ / ผลรวมตัวเลข / เลขโปรด)</th>
-                      <th>คะแนนรวม</th>
-                      <th>ป้ายพิเศษ</th>
-                      <th className="ranking-actions-col" aria-label="การดำเนินการ"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeCandidates.map((c, i) => {
-                      const isExpanded = expandedTails.has(c.tailDigits);
-                      const detailId = `${detailIdBase}-${activeTail}-${c.tailDigits}`;
-                      return (
-                        <Fragment key={c.tailDigits}>
-                          <tr data-ranking-row="" className={`ranking-row--${rankTier(i + 1)}`}>
-                            <td className="rank">
-                              <RankBadge rank={i + 1} />
-                            </td>
-                            <td className="plate-cell">
-                              {/* ป้ายเล็กเป็นปุ่มขยาย (ผลเหมือน "ดูรายละเอียด") ไม่มี caption/ปุ่มคัดลอก — ประโยค "ภาพจำลอง" อยู่เหนือตารางครั้งเดียว
-                                  ข้อความเลขทะเบียนเก็บไว้แบบ sr-only ให้ค้นหา (Ctrl+F) */}
-                              <PlateToggleButton
-                                input={c.input}
-                                auction={c.auction}
-                                widthPx={RANKING_ROW_PLATE_WIDTH}
-                                expanded={isExpanded}
-                                controls={detailId}
-                                onToggle={() => toggleExpanded(c.tailDigits)}
-                              />
-                              <span className="sr-only">{formatPlateText(c.input)}</span>
-                            </td>
-                            <td className="verdict-cell">
-                              <VerdictPill verdict={c.verdict} />
-                            </td>
-                            <td className="ranking-badges-col">
-                              <CandidateBadges c={c} />
-                            </td>
-                            <td className="score-cell">
-                              <ScoreFigure score={c.finalScore} rank={i + 1} />
-                            </td>
-                            <td>
-                              {c.auction.isAuction || c.popular.isPopular ? (
-                                <div className="ranking-tags-cell">
-                                  {c.auction.isAuction && (
-                                    <span className="auction-tag">
-                                      {/* "● เลขประมูล" และชื่อกลุ่มแต่ละชื่อไม่ตัดกลางคำ (เช่น "เลขคู่/เลขเบิ้ล") — ตัดบรรทัดได้เฉพาะระหว่างส่วน */}
-                                      <span className="auction-tag__cat">● เลขประมูล</span>{' '}
-                                      {c.auction.categories.map((cat, ci) => (
-                                        <Fragment key={cat}>
-                                          {ci > 0 && ', '}
-                                          <span className="auction-tag__cat">{cat}</span>
-                                        </Fragment>
-                                      ))}
-                                    </span>
-                                  )}
-                                  {c.popular.isPopular && (
-                                    <span className="popular-tag">เลขสวย {popularStars(c.popular.weight)}</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="ranking-empty-cell">—</span>
-                              )}
-                            </td>
-                            <td className="ranking-actions-col">
-                              <div className="ranking-actions-cell">
-                                <ExpandButton
-                                  expanded={isExpanded}
-                                  controls={detailId}
-                                  onToggle={() => toggleExpanded(c.tailDigits)}
-                                />
-                                {onViewBirthdayCompat && (
-                                  <button
-                                    type="button"
-                                    className="birthday-compat-link"
-                                    onClick={() => onViewBirthdayCompat(c.input, currentReturnContext)}
-                                  >
-                                    เช็คกับวันเกิด →
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                          {/* มีแถวเสมอ (ซ่อนตอนยุบ) ให้ aria-controls ชี้ได้ — เนื้อหา render เฉพาะตอนเปิด */}
-                          <tr id={detailId} className="ranking-detail-row" hidden={!isExpanded}>
-                            <td colSpan={TABLE_COLUMN_COUNT}>
-                              {isExpanded && (
-                                <ModeDetailPanel
-                                  input={c.input}
-                                  mode1={c.mode1}
-                                  mode2={c.mode2}
-                                  mode3={c.mode3}
-                                  leading={
-                                    <PlateImage
-                                      className="ranking-detail-plate"
-                                      frontDigit={c.input.frontDigit}
-                                      thaiLetters={c.input.thaiLetters}
-                                      tailDigits={c.input.tailDigits}
-                                      variant={plateVariantFor(c.auction)}
-                                      provinceLabel={resolvePlateProvinceLabel(c.input)}
-                                      copyText={plateCopyText(c.input)}
-                                      provinceNote={plateProvinceNote(c.input)}
-                                    />
-                                  }
-                                  onViewFiveElement={
-                                    onViewFiveElement
-                                      ? (input) => onViewFiveElement(input, currentReturnContext)
-                                      : undefined
-                                  }
-                                  onViewAyatana6={
-                                    onViewAyatana6
-                                      ? (input) => onViewAyatana6(input, currentReturnContext)
-                                      : undefined
-                                  }
-                                />
-                              )}
-                            </td>
-                          </tr>
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      )}
+                    ) : (
+                      <span className="ranking-empty-cell">—</span>
+                    )}
+                  </td>
+                  <td className="ranking-actions-col">
+                    <div className="ranking-actions-cell">
+                      <ExpandButton expanded={isExpanded} controls={r.detailId} onToggle={() => onToggle(r.key)} />
+                      {birthdayLink(r)}
+                    </div>
+                  </td>
+                </tr>
+                {/* มีแถวเสมอ (ซ่อนตอนยุบ) ให้ aria-controls ชี้ได้ — เนื้อหา render เฉพาะตอนเปิด */}
+                <tr id={r.detailId} className="ranking-detail-row" hidden={!isExpanded}>
+                  <td colSpan={TABLE_COLUMN_COUNT}>
+                    {isExpanded && (
+                      <ModeDetailPanel
+                        input={r.input}
+                        mode1={r.mode1}
+                        mode2={r.mode2}
+                        mode3={r.mode3}
+                        leading={
+                          <PlateImage
+                            className="ranking-detail-plate"
+                            frontDigit={r.input.frontDigit}
+                            thaiLetters={r.input.thaiLetters}
+                            tailDigits={r.input.tailDigits}
+                            variant={plateVariantFor(r.auction)}
+                            provinceLabel={resolvePlateProvinceLabel(r.input)}
+                            copyText={plateCopyText(r.input)}
+                            provinceNote={plateProvinceNote(r.input)}
+                          />
+                        }
+                        onViewFiveElement={onViewFiveElement}
+                        onViewAyatana6={onViewAyatana6}
+                      />
+                    )}
+                  </td>
+                </tr>
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
