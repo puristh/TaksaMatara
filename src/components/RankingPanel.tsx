@@ -74,7 +74,7 @@ export const RANKING_NARROW_MAX_PX = 480;
  */
 export const RANKING_TABLE_MIN_REM = 56.5;
 /**
- * เมื่อมีแถว verdict "ไม่ควรใช้" (เกิดได้เฉพาะโหมดเลขที่เล็งไว้ — โหมดปกติคัดเลขที่ Mode 1 ไม่ดีออกตั้งแต่ engine):
+ * เมื่อมีแถว verdict "ไม่ควรใช้" (โหมดเลขที่เล็งไว้ หรือโหมดคัดเข้มที่ป้ายมีคู่ Tier 4 — โหมดปกติคัดเลขที่ Mode 1 ไม่ดีออกตั้งแต่ engine):
  * pill "ไม่ควรใช้" กว้างกว่า "ใช้ได้" 25px และตัดบรรทัดไม่ได้ ตารางกรณีหนักสุด (ไม่ควรใช้ + เลขประมูล "เลขหาม/เลขหาบ (XYYX)")
  * กว้างน้อยสุด 910px + ขอบกรอบ 16px = 57.9rem → 58rem (928px, ~985px ที่ตัวอักษร 100%)
  * จอแคบกว่านี้ใช้แถวกะทัดรัด (ไม่ย่อเนื้อหาและไม่ให้ตารางเลื่อนแนวนอน)
@@ -715,7 +715,7 @@ export function candidateRowData(c: RankingCandidate, index: number, detailId: s
  * แถวโหมดเลขที่เล็งไว้: อันดับ/คะแนน/mode1-3 มาจาก comparePlates (rankTargetTails) ตามเดิม ส่วน verdict/badge/
  * เลขประมูล/เลขสวยเรียกฟังก์ชัน engine ตัวเดียวกับที่ generateTopCandidates ใช้ (combineVerdictAndBadges,
  * detectAuctionNumber, detectPopularNumber) กับ mode1-3 ชุดเดียวกัน — ไม่มีการเดาค่าและไม่แก้ engine
- * verdict = mode1.tier !== 'bad' ซึ่งเท่ากับ mode1.verdict ที่โหมดนี้ใช้เดิม · เลขโปรด: โหมดนี้ล็อกช่องเลขโปรด จึงว่างเสมอ
+ * verdict มาจาก combineVerdictAndBadges → resolvePlateVerdict (เหมือนโหมดปกติทุกประการ) · เลขโปรด: โหมดนี้ล็อกช่องเลขโปรด จึงว่างเสมอ
  */
 export function targetRowData(
   result: TargetRankedResult,

@@ -4,7 +4,7 @@ import { ModeDetailPanel } from './ModeDetailPanel';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
 import { PlateWithTags } from './PlateWithTags';
-import { pairWarningText } from '../engine/combine';
+import { pairWarningText, resolvePlateVerdict } from '../engine/combine';
 import { useRankingStrategy } from './RankingStrategyContext';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
@@ -33,7 +33,10 @@ export function ComparisonResultCard({
   headerExtra,
 }: ComparisonResultCardProps) {
   // ข้อความเดียวกับ badge ของหน้า Batch (pairWarningText) — ระบุคู่ Tier 4 จริงทุกคู่
-  const pairWarning = pairWarningText(result.mode2, useRankingStrategy());
+  const strategy = useRankingStrategy();
+  const pairWarning = pairWarningText(result.mode2, strategy);
+  // verdict ตัวเดียวกับ Batch/หน้าเลขเดี่ยว (โหมดคัดเข้ม: มีคู่ Tier 4 = ไม่ควรใช้)
+  const verdict = resolvePlateVerdict(result.mode1, result.mode2, strategy);
   return (
     <div className={`compare-column${isWinner ? ' winner' : ''}`}>
       <div className="compare-column-header">
@@ -42,8 +45,8 @@ export function ComparisonResultCard({
         <PlateWithTags input={result.input} layout="column" />
         <div className="compare-rank-row">
           <span className={`compare-rank-badge${isWinner ? ' best' : ''}`}>อันดับ {result.rank}</span>
-          <span className={`verdict ${result.mode1.verdict ? 'v-good' : 'v-bad'}`}>
-            {result.mode1.verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
+          <span className={`verdict ${verdict ? 'v-good' : 'v-bad'}`}>
+            {verdict ? '✓ ใช้ได้' : '✕ ไม่ควรใช้'}
           </span>
         </div>
         <div className="compare-score-line">

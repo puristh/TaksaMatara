@@ -22,6 +22,23 @@ export function findTier4Pairs(mode2: Pick<Mode2Result, 'pairDetails'>): string[
 }
 
 /**
+ * verdict ที่แสดงบนหน้าจอ (pill "ใช้ได้"/"ไม่ควรใช้") — ตัดสินจุดเดียว ทุกหน้าเรียกฟังก์ชันนี้
+ * - ตลาด (Mode 1) = 'bad' → false เสมอ ทุก strategy
+ * - 'strict' (โหมดคัดเข้ม): มีคู่ Tier 4 อย่างน้อยหนึ่งคู่ → false ด้วย
+ * - 'market-first': มาจาก Mode 1 อย่างเดียว (เหมือนเดิม)
+ * ไม่มีผลต่อคะแนน/Tier/กลุ่มตลาด/ลำดับ — ใช้แสดงผลเท่านั้น
+ */
+export function resolvePlateVerdict(
+  mode1: Pick<Mode1Result, 'tier'>,
+  mode2: Pick<Mode2Result, 'pairDetails'>,
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
+): boolean {
+  if (mode1.tier === 'bad') return false;
+  if (strategy === 'strict' && findTier4Pairs(mode2).length > 0) return false;
+  return true;
+}
+
+/**
  * ข้อความเตือนคู่ Tier 4 (ข้อความเดียวที่ทุกหน้าใช้: badge ของ Batch ทั้งสองโหมด, การ์ดเปรียบเทียบ, หน้าเลขเดี่ยว)
  * - 'market-first': นุ่มนวล ไม่ใช้คำว่า เสีย/ห้าม/อัปมงคล เช่น "มีคู่เลขที่ควรพิจารณา: 12"
  * - 'strict': ถ้อยคำเดิม เช่น "พบคู่เสีย "12""
@@ -44,7 +61,7 @@ export function pairWarningText(
  *                         'strict': badge warning "คู่เลขที่ปรากฏ: พบคู่เสีย "<คู่จริงทุกคู่>""
  *   ไม่มี -> badge positive
  * - Mode 3 good -> badge positive, ไม่งั้น badge neutral ("ปานกลาง")
- * strategy มีผลเฉพาะถ้อยคำ/สีของ badge — verdict มาจาก Mode 1 เสมอ
+ * verdict ดู resolvePlateVerdict (โหมดคัดเข้ม: มีคู่ Tier 4 = ไม่ควรใช้ · โหมดทั่วไป: มาจาก Mode 1)
  */
 export function combineVerdictAndBadges(
   mode1: Mode1Result,
@@ -52,7 +69,7 @@ export function combineVerdictAndBadges(
   mode3: Mode3Result,
   strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
 ): { verdict: boolean; badges: Badge[] } {
-  const verdict = mode1.tier !== 'bad';
+  const verdict = resolvePlateVerdict(mode1, mode2, strategy);
 
   const badges: Badge[] = [];
 

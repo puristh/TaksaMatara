@@ -10,7 +10,7 @@ import { dominantPairLine, ModeDetailPanel, tier4LeadText } from './ModeDetailPa
 import { RankingStrategyContext, StrictModeIndicator } from './RankingStrategyContext';
 import { generateTopCandidates } from '../engine/ranking';
 import { comparePlates } from '../engine/comparePlates';
-import { combineVerdictAndBadges, findTier4Pairs, pairWarningText } from '../engine/combine';
+import { combineVerdictAndBadges, findTier4Pairs, pairWarningText, resolvePlateVerdict } from '../engine/combine';
 import { analyzePlate } from '../engine/analyzePlate';
 import { calculateMode1, getMode1TierFromTotal } from '../engine/mode1';
 import { calculateMode2 } from '../engine/mode2';
@@ -330,5 +330,90 @@ describe('ส่วน 2: เปิด/ปิดโหมดคัดเข้�
     for (const src of [appSource, mainSource]) {
       expect(codeOnly(src)).not.toMatch(/strict=|คัดเข้ม/);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------
+describe('โหมดคัดเข้ม: ป้ายที่มีคู่ Tier 4 แสดง verdict "ไม่ควรใช้" · โหมดทั่วไปไม่เปลี่ยน', () => {
+  const base: BatchReturnState = {
+    frontDigit: '1', letter1: 'ก', letter2: 'ข', excludeAuction: false, excludePopular: false,
+    rowLimit: 30, favoriteDigits: ['', '', '', ''],
+  };
+  const targets = ['1245', '45', '', '', '', '', '', '', '', ''];
+  const panel = (strategy: RankingStrategy, layout: RankingLayout) =>
+    withStrategy(
+      strategy,
+      createElement(RankingPanel as (p: Record<string, unknown>) => ReturnType<typeof RankingPanel>, {
+        restoreState: { ...base, targetTails: targets },
+        layout,
+        initialExpanded: ['target-0', 'target-1'],
+        onViewBirthdayCompat: () => {},
+      }),
+    );
+  const pill = (html: string) => [...html.matchAll(/aria-label="ผลประเมิน: ([^"]+)"/g)].map((m) => m[1]);
+  const single = (s: RankingStrategy, tail: string) =>
+    withStrategy(s, createElement(ResultCard, { result: analyzePlate(plate(tail), { strategy: s }) }));
+  const card = (s: RankingStrategy, tail: string) =>
+    withStrategy(
+      s,
+      createElement(ComparisonResultCard, { result: comparePlates([plate(tail)], s)[0], label: 'ทะเบียน A', isWinner: true }),
+    );
+
+  it('engine: 1 กข 1245 (ตลาด 16 ดี, มีคู่ 12) = ไม่ควรใช้ ในโหมดคัดเข้ม · ใช้ได้ ในโหมดทั่วไป · 45 = ใช้ได้ ทั้งสองโหมด', () => {
+    const m1245 = modesOf(plate('1245'));
+    const m45 = modesOf(plate('45'));
+    expect(m1245.mode1.tier).toBe('good');
+    expect(combineVerdictAndBadges(m1245.mode1, m1245.mode2, m1245.mode3, 'strict').verdict).toBe(false);
+    expect(combineVerdictAndBadges(m1245.mode1, m1245.mode2, m1245.mode3).verdict).toBe(true);
+    expect(combineVerdictAndBadges(m45.mode1, m45.mode2, m45.mode3, 'strict').verdict).toBe(true);
+    expect(combineVerdictAndBadges(m45.mode1, m45.mode2, m45.mode3).verdict).toBe(true);
+    expect(resolvePlateVerdict(m1245.mode1, m1245.mode2, 'strict')).toBe(false);
+    expect(analyzePlate(plate('1245'), { strategy: 'strict' }).verdict).toBe(false);
+    expect(analyzePlate(plate('1245')).verdict).toBe(true);
+  });
+
+  it('ตลาด "ไม่ดี" คงเดิม (ไม่ควรใช้) ทั้งสองโหมด มีหรือไม่มีคู่ Tier 4 ก็ตาม (1 กข 12 = ผลรวม 7, 1 กข 4516 = ผลรวม 20)', () => {
+    for (const s of ['market-first', 'strict'] as const) {
+      for (const tail of ['12', '4516']) {
+        const m = modesOf(plate(tail));
+        expect(m.mode1.tier).toBe('bad');
+        expect(resolvePlateVerdict(m.mode1, m.mode2, s)).toBe(false);
+      }
+    }
+  });
+
+  it('Top N โหมดคัดเข้ม: verdict ของทุกแถว = ไม่มีคู่ Tier 4 · โหมดทั่วไป: ใช้ได้ทุกแถว (ตลาดไม่ดีถูกตัดออกแล้ว)', () => {
+    const strict = generateTopCandidates(1, ['ก', 'ข'], 2, false, false, 200, undefined, 'strict');
+    expect(strict.some((c) => c.hasBadPair)).toBe(true);
+    for (const c of strict) expect(c.verdict).toBe(!c.hasBadPair);
+    expect(generateTopCandidates(1, ['ก', 'ข'], 2, false, false, 200).every((c) => c.verdict)).toBe(true);
+  });
+
+  it('คะแนนและลำดับไม่เปลี่ยน: โหมดคัดเข้มยังเรียง 45 (152) เหนือ 1245 (102) และคะแนนเท่าเดิม', () => {
+    const r = rankTargetTails(1, ['ก', 'ข'], targets, 'strict');
+    expect(r.map((x) => [x.input.tailDigits, x.finalScore, x.rank])).toEqual([
+      ['45', 152, 1],
+      ['1245', 102, 2],
+    ]);
+  });
+
+  it('ทุกหน้า โหมดคัดเข้ม: 1245 = ไม่ควรใช้, 45 = ใช้ได้ (Batch เลขที่เล็งไว้ ตาราง/แถวกะทัดรัด+แถวขยาย, หน้าเลขเดี่ยว, หน้าเปรียบเทียบ)', () => {
+    // ลำดับในหน้า Batch: 45 ก่อน 1245
+    expect(pill(panel('strict', 'table'))).toEqual(['ใช้ได้', 'ไม่ควรใช้']);
+    expect(pill(panel('strict', 'compact'))).toEqual(['ใช้ได้', 'ไม่ควรใช้']);
+    expect(single('strict', '1245')).toContain('aria-label="ผลประเมิน: ไม่ควรใช้"');
+    expect(single('strict', '45')).toContain('aria-label="ผลประเมิน: ใช้ได้"');
+    expect(card('strict', '1245')).toContain('<span class="verdict v-bad">✕ ไม่ควรใช้</span>');
+    expect(card('strict', '45')).toContain('<span class="verdict v-good">✓ ใช้ได้</span>');
+  });
+
+  it('ทุกหน้า โหมดทั่วไป: 1245 ไม่มีคำว่า "ไม่ควรใช้" และยังมีข้อความสีกลาง "มีคู่เลขที่ควรพิจารณา: 12"', () => {
+    for (const html of [panel('market-first', 'table'), panel('market-first', 'compact'), single('market-first', '1245'), card('market-first', '1245')]) {
+      expect(html).not.toContain('ไม่ควรใช้');
+      // ตรวจเฉพาะถ้อยคำคู่เลข — คำอธิบายกลุ่มตลาด "ดี" จากตารางต้นฉบับมีคำว่า "ไม่มีข้อเสียเด่นชัด" อยู่แล้ว (ไม่ใช่คำเตือน)
+      expect(html).not.toContain('คู่เสีย');
+      expect(html).toContain('มีคู่เลขที่ควรพิจารณา: 12');
+    }
+    expect(pill(panel('market-first', 'table'))).toEqual(['ใช้ได้', 'ใช้ได้']);
   });
 });
