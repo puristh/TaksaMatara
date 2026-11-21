@@ -28,15 +28,24 @@ describe('app toolbar (font scale / theme) does not float over content', () => {
       for (const body of rulesFor(sel)) expect(body).not.toMatch(/position\s*:\s*(fixed|absolute|sticky)/);
     });
   }
-  it('both controls are rendered inside .app-toolbar, before the nav bar', () => {
+  // [theme เฟส 1] เดิมตรวจว่ามี <ThemeToggle ใน toolbar — เฟสนี้ซ่อนสวิตช์ (ธีมมืดอย่างเดียว) จึงเปลี่ยนเป็นตรวจว่า
+  // ไม่ render ThemeToggle (ตัดคอมเมนต์ JSX ออกก่อน — บรรทัดที่พักไว้เป็นคอมเมนต์ต้องไม่นับ) และมีหัวเว็บ TmHeader แทน
+  it('toolbar อยู่ก่อนแถบเมนู มี TmHeader + FontScaleControl และไม่ render สวิตช์ Dark/Light (พักไว้ เฟส 1 theme)', () => {
     const start = app.indexOf('<div className="app-toolbar">');
     const end = app.indexOf('</div>', start);
     expect(start).toBeGreaterThan(-1);
-    const block = app.slice(start, end);
+    const block = app.slice(start, end).replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    expect(block).toContain('<TmHeader />');
     expect(block).toContain('<FontScaleControl />');
-    expect(block).toContain('<ThemeToggle');
+    expect(block).not.toContain('<ThemeToggle');
+    expect(app).not.toMatch(/^\s*import \{ (useTheme|ThemeToggle) \}/m);
     expect(start).toBeLessThan(app.indexOf('className="nav-bar"'));
   });
+  it('ธีมมืดอย่างเดียว: index.html ตั้ง data-theme="dark" และ color-scheme dark ตั้งแต่ก่อน JS โหลด', () => {
+    expect(indexHtml).toMatch(/<html lang="th" data-theme="dark">/);
+    expect(indexHtml).toContain('<meta name="color-scheme" content="dark" />');
+  });
+  // [theme เฟส 1] CSS ของ .theme-toggle ยังเก็บไว้ (พักไว้) — เทสต์ขนาด 44px คงไว้เพื่อให้กลับมาใช้ได้ทันที
   it('touch targets: font-scale buttons and theme toggle are at least 44px', () => {
     expect(rulesFor('.font-scale-btn').join('')).toMatch(/width:\s*44px[\s\S]*height:\s*44px/);
     expect(rulesFor('.theme-toggle').join('')).toMatch(/min-height:\s*44px/);

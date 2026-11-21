@@ -186,6 +186,7 @@ export function emphasisPairs(theme: Record<string, string>): [string, RGB, RGB]
   return pairs;
 }
 
+// [theme เฟส 1] โหมดสว่างพักไว้ (ไม่ถูกใช้) — ยังตรวจ light ต่อเพื่อไม่ให้ค่าที่พักไว้เสีย; dark = ค่าโทนดำทองของ theme ใหม่
 describe('contrast ≥ 4.5:1 ทุกคู่สี (Light และ Dark)', () => {
   for (const [themeName, theme] of [['light', LIGHT], ['dark', DARK]] as const)
     it(themeName, () => {

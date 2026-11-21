@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { analyzePlate } from './engine';
 import type { PlateInput, PlateVerdict } from './engine';
-import { useTheme } from './hooks/useTheme';
-import { ThemeToggle } from './components/ThemeToggle';
+// พักไว้ เฟส 1 theme: โหมดสว่าง/สวิตช์ Dark-Light ไม่ถูกใช้ (ธีมมืดอย่างเดียว — data-theme="dark" ตั้งใน index.html)
+// โค้ดเดิมยังอยู่ครบ: hooks/useTheme.ts, components/ThemeToggle.tsx, บล็อกสีสว่างใน theme.css
+// import { useTheme } from './hooks/useTheme';
+// import { ThemeToggle } from './components/ThemeToggle';
+import { TmHeader } from './components/TmHeader';
 import { FontScaleControl } from './components/FontScaleControl';
 import { PlateForm } from './components/PlateForm';
 import { ResultCard } from './components/ResultCard';
@@ -81,7 +84,7 @@ function viewFromHash(hash: string): View {
 }
 
 export default function App() {
-  const [theme, toggleTheme] = useTheme();
+  // พักไว้ เฟส 1 theme: const [theme, toggleTheme] = useTheme();
   const [view, setView] = useState<View>(() =>
     typeof window === 'undefined' ? 'landing' : viewFromHash(window.location.hash),
   );
@@ -192,9 +195,10 @@ export default function App() {
     <div className="app">
       {/* แถบเครื่องมืออยู่ในลำดับปกติของหน้า (ไม่ลอย) — ดู .app-toolbar ใน theme.css */}
       <div className="app-toolbar">
+        <TmHeader />
         <StrictModeIndicator strategy={rankingStrategy} />
         <FontScaleControl />
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        {/* พักไว้ เฟส 1 theme: <ThemeToggle theme={theme} onToggle={toggleTheme} /> */}
       </div>
 
       {view !== 'landing' && (

@@ -1,3 +1,4 @@
+// พักไว้ เฟส 1 theme: ไม่ถูกเรียกใช้ระหว่างเฟส 1 (ธีมมืดอย่างเดียว) — เก็บไว้เพื่อกลับมาใช้โหมดสว่างภายหลัง
 import { useEffect, useState } from 'react';
 
 export type Theme = 'light' | 'dark';

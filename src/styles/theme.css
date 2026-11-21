@@ -1,6 +1,8 @@
 /* คัดลอกโครงสร้าง CSS custom properties ตรงจาก ui_mockup_verdict_badge.html
    เพื่อให้ light/dark theme มีความหมายสีตรงกันทั้งสองฝั่ง */
 
+/* โหมดสว่าง — พักไว้ เฟส 1 theme: ไม่ถูกใช้ระหว่างเฟส 1 (index.html ตั้ง data-theme="dark" เสมอ) แต่เก็บค่าไว้ครบ
+   และยังเป็นค่าตั้งต้นของตัวแปรที่ธีมมืดไม่ได้ override (เช่น --medal-silver/--medal-bronze, --rank-plain-ink) */
 :root {
   --ink: #1c2430;
   --ink-soft: #5b6472;
@@ -46,53 +48,69 @@
 /* prefers-color-scheme เป็น default เมื่อผู้ใช้ยังไม่กด toggle (ไม่มี data-theme บน <html>) */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --ink: #edeff4;
-    --ink-soft: #9aa3b2;
-    --paper: #12161d;
-    --card: #1b212b;
-    --line: #2b3340;
-    --navy: #8fb4e8;
+    --ink: #f3e8d4;
+    --ink-soft: #aba292;
+    --paper: #080604;
+    --card: #110c07;
+    --line: rgba(168, 121, 53, 0.32);
+    --navy: #d9b36a;
 
-    --good-strong: #4fce9c;
-    --good-strong-bg: #183328;
-    --good: #4fce9c;
-    --good-bg: #17281f;
-    --mid: #e3b462;
-    --mid-bg: #2e2717;
-    --bad: #f2907a;
-    --bad-bg: #301e1b;
-    --popular: #c4a4f7;
-    --popular-bg: #29203f;
-    --favorite: #f299bb;
-    --favorite-bg: #3a2230;
-    --rank-plain: #4a5363;
+    --good-strong: #a9c79a;
+    --good-strong-bg: #1c2614;
+    --good: #a9c79a;
+    --good-bg: #18200f;
+    --mid: #d9b36a;
+    --mid-bg: #2a2010;
+    --bad: #c8735a;
+    --bad-bg: #2a1610;
+    --popular: #f8d99a;
+    --popular-bg: #39230f;
+    --favorite: #e3a48e;
+    --favorite-bg: #2e1a14;
+    --rank-plain: #4a3418;
     --medal-tint: 12%;
+    /* theme "The Living Wisdom" เฟส 1: ไม่ใช้เขียวนีออน/แดงสด/เหลืองแบน — ทองโลหะ + แดงหม่น #c8735a ตาม theme */
+    --verdict-good: #8fbf7a;
+    --verdict-good-ink: #0d1a08;
+    --verdict-bad: #c8735a;
+    --verdict-bad-ink: #1d0a04;
+    --medal-gold: #d9b36a;
+    --medal-gold-ink: #1d1206;
+    --medal-gold-edge: #a87935;
   }
 }
 
 /* toggle ผู้ใช้กดเอง ชนะ prefers-color-scheme เสมอทั้งสองทิศทาง */
 [data-theme='dark'] {
-  --ink: #edeff4;
-  --ink-soft: #9aa3b2;
-  --paper: #12161d;
-  --card: #1b212b;
-  --line: #2b3340;
-  --navy: #8fb4e8;
+  --ink: #f3e8d4;
+  --ink-soft: #aba292;
+  --paper: #080604;
+  --card: #110c07;
+  --line: rgba(168, 121, 53, 0.32);
+  --navy: #d9b36a;
 
-  --good-strong: #4fce9c;
-  --good-strong-bg: #183328;
-  --good: #4fce9c;
-  --good-bg: #17281f;
-  --mid: #e3b462;
-  --mid-bg: #2e2717;
-  --bad: #f2907a;
-  --bad-bg: #301e1b;
-  --popular: #c4a4f7;
-  --popular-bg: #29203f;
-  --favorite: #f299bb;
-  --favorite-bg: #3a2230;
-  --rank-plain: #4a5363;
+  --good-strong: #a9c79a;
+  --good-strong-bg: #1c2614;
+  --good: #a9c79a;
+  --good-bg: #18200f;
+  --mid: #d9b36a;
+  --mid-bg: #2a2010;
+  --bad: #c8735a;
+  --bad-bg: #2a1610;
+  --popular: #f8d99a;
+  --popular-bg: #39230f;
+  --favorite: #e3a48e;
+  --favorite-bg: #2e1a14;
+  --rank-plain: #4a3418;
   --medal-tint: 12%;
+  /* theme "The Living Wisdom" เฟส 1: ไม่ใช้เขียวนีออน/แดงสด/เหลืองแบน — ทองโลหะ + แดงหม่น #c8735a ตาม theme */
+  --verdict-good: #8fbf7a;
+  --verdict-good-ink: #0d1a08;
+  --verdict-bad: #c8735a;
+  --verdict-bad-ink: #1d0a04;
+  --medal-gold: #d9b36a;
+  --medal-gold-ink: #1d1206;
+  --medal-gold-edge: #a87935;
 }
 
 * {
@@ -107,6 +125,20 @@ body {
   transition:
     background 0.2s ease,
     color 0.2s ease;
+}
+/* theme "The Living Wisdom" เฟส 1 — พื้นหลังตาม theme ข้อ 1 (ไล่เฉดอุ่นดำทอง) · จอ ≤700px ไม่ใช้ background-attachment: fixed */
+[data-theme='dark'] body {
+  background:
+    radial-gradient(1200px 800px at 76% 30%, rgba(122, 83, 32, 0.2), transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, rgba(57, 35, 15, 0.55), transparent 70%),
+    linear-gradient(180deg, #080604 0%, #0b0805 45%, #080604 100%);
+  background-color: var(--paper);
+  background-attachment: fixed;
+}
+@media (max-width: 700px) {
+  [data-theme='dark'] body {
+    background-attachment: scroll;
+  }
 }
 
 .app {
@@ -138,6 +170,34 @@ body {
   font-size: 0.75rem;
   color: var(--ink-soft);
   background: var(--card);
+}
+
+/* theme "The Living Wisdom" เฟส 1 — หัวเว็บ: สัญลักษณ์ Taksa Matara (Seed of Life) + "Taksa Matara" (Cormorant Garamond 500)
+   "Taksa" สีงาช้าง "Matara" ไล่สีทอง (background-clip: text) ตาม theme · class ขึ้นต้น tm- ไม่ทับของเดิม */
+.tm-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+  min-height: 44px;
+}
+.tm-symbol {
+  flex: none;
+  display: block;
+}
+.tm-brand {
+  font-family: 'Cormorant Garamond', 'Times New Roman', serif;
+  font-weight: 500;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.tm-brand__matara {
+  background: linear-gradient(90deg, #a87935, #d9b36a, #f8d99a, #d9b36a, #a87935);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .theme-toggle {
@@ -230,7 +290,7 @@ body {
   z-index: -1;
 }
 .font-scale-btn:hover:not(:disabled) {
-  color: #fff;
+  color: var(--paper); /* theme เฟส 1: เดิม #fff — ตัวอักษรเข้มบนปุ่มสีทอง (--navy) */
 }
 .font-scale-btn:hover:not(:disabled)::before {
   background: var(--navy);
@@ -262,6 +322,11 @@ h1 {
   font-size: 1.75rem;
   margin: 0 0 6px;
   font-weight: 700;
+  /* theme เฟส 1: หัวข้อหน้า — Cormorant Garamond เฉพาะตัวละติน/ตัวเลข ตัวไทยตกไปที่ Sarabun (Cormorant ไม่มี glyph ไทย) */
+  font-family: 'Cormorant Garamond', 'Sarabun', serif;
+}
+h2 {
+  font-family: 'Cormorant Garamond', 'Sarabun', serif;
 }
 .sub {
   color: var(--ink-soft);
@@ -360,7 +425,7 @@ h1 {
   border-radius: 8px;
   border: none;
   background: var(--navy);
-  color: #fff;
+  color: var(--paper); /* theme เฟส 1: เดิม #fff — ตัวอักษรเข้มบนปุ่มสีทอง (--navy) */
   cursor: pointer;
 }
 .form-row button:hover {
@@ -446,7 +511,7 @@ h1 {
 .limit-toggle-row .limit-buttons button.active {
   background: var(--navy);
   border-color: var(--navy);
-  color: #fff;
+  color: var(--paper); /* theme เฟส 1: เดิม #fff — ตัวอักษรเข้มบนปุ่มสีทอง (--navy) */
 }
 .limit-toggle-row .limit-buttons button:hover:not(.active) {
   opacity: 0.85;
@@ -542,7 +607,7 @@ h1 {
   letter-spacing: 0.02em;
 }
 [data-theme='dark'] .auction-tag {
-  background: #1c2635;
+  background: #39230f; /* theme เฟส 1: --bronze (เดิม #1c2635 โทนน้ำเงิน) */
 }
 
 .popular-tag {
@@ -666,7 +731,7 @@ details[open] summary::before {
   vertical-align: middle;
 }
 [data-theme='dark'] .dominant-badge {
-  background: #1c2635;
+  background: #39230f; /* theme เฟส 1: --bronze (เดิม #1c2635 โทนน้ำเงิน) */
 }
 
 .section-note {
@@ -736,7 +801,7 @@ details[open] summary::before {
 .nav-tabs button.active {
   background: var(--navy);
   border-color: var(--navy);
-  color: #fff;
+  color: var(--paper); /* theme เฟส 1: เดิม #fff — ตัวอักษรเข้มบนปุ่มสีทอง (--navy) */
 }
 .nav-tabs button:hover:not(.active) {
   opacity: 0.85;
@@ -1407,6 +1472,7 @@ table.ranking-table {
   padding: 0 4px 60px;
 }
 .landing-title {
+  font-family: 'Cormorant Garamond', 'Sarabun', serif; /* theme เฟส 1: หัวข้อหน้าแรก (ตัวไทยยังเป็น Sarabun) */
   font-size: 2.625rem;
   font-weight: 800;
   line-height: 1.25;
@@ -1450,7 +1516,7 @@ table.ranking-table {
 }
 .landing-cta .cta-primary {
   background: var(--navy);
-  color: #fff;
+  color: var(--paper); /* theme เฟส 1: เดิม #fff — ตัวอักษรเข้มบนปุ่มสีทอง (--navy) */
   border: none;
 }
 .landing-cta .cta-primary:hover {
@@ -1465,7 +1531,7 @@ table.ranking-table {
   background: #eaeff6;
 }
 [data-theme='dark'] .landing-cta .cta-secondary:hover {
-  background: #1c2635;
+  background: #39230f; /* theme เฟส 1: --bronze (เดิม #1c2635 โทนน้ำเงิน) */
 }
 
 @media (max-width: 600px) {
@@ -1927,7 +1993,7 @@ table.ranking-table {
 .birthday-compat-wednesday-row .limit-buttons button.active {
   background: var(--navy);
   border-color: var(--navy);
-  color: #fff;
+  color: var(--paper); /* theme เฟส 1: เดิม #fff — ตัวอักษรเข้มบนปุ่มสีทอง (--navy) */
 }
 .birthday-compat-weekday-note {
   margin-top: 12px;

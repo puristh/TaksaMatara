@@ -46,7 +46,7 @@ const maxSizeOf = (selector: string) => Math.max(...sizesOf(selector));
 /** ส่วนบนของหน้า #batch: หัวหน้า, แถบเมนู, ฟอร์ม */
 const TOP = [
   '.field label', // "เลขหน้า" 11.5
-  '.theme-toggle',
+  '.theme-toggle', // [theme เฟส 1] สวิตช์ไม่ถูก render (พักไว้) แต่กฎ CSS ยังอยู่ — คงไว้ในรายการ
   '.font-scale-control',
   '.eyebrow', // 12
   '.limit-toggle-row .limit-buttons button',
