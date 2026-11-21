@@ -4,9 +4,11 @@ import { sumDigitsOfString } from '../engine/digitSum';
 import { plateNumberDigits } from '../engine/plateText';
 import { analyzeAyatana6 } from '../engine/ayatana6';
 import type { Ayatana6Result } from '../engine/ayatana6';
-import type { Mode1Result, Mode2Result, Mode3Result, PlateInput } from '../engine';
+import type { Mode1Result, Mode2Result, Mode3Result, PlateInput, RankingStrategy } from '../engine';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { ReactNode } from 'react';
+import { findTier4Pairs } from '../engine/combine';
+import { useRankingStrategy } from './RankingStrategyContext';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -37,6 +39,24 @@ const TIER_LABEL: Record<string, string> = {
   tier3: 'Tier 3',
   tier4: 'Tier 4',
 };
+
+/**
+ * บรรทัด "คู่หลัก = Tier" ของกล่อง Pattern — แสดง Tier ของคู่หลัก (คู่ท้ายสุด) เอง ไม่ใช่ Tier รวมของทั้งเลขท้าย
+ * (Tier รวมแสดงอยู่ที่ป้าย tag ข้างล่างแล้ว) เช่น "4516": คู่หลัก 16 = Tier 2.5 ขณะที่ Tier รวม = Tier 1
+ */
+export function dominantPairLine(mode2: Pick<Mode2Result, 'pairDetails' | 'dominantPair'>): string {
+  const detail = mode2.pairDetails[mode2.pairDetails.length - 1];
+  if (!detail) return '';
+  return `${detail.pair} = ${TIER_LABEL[detail.tier]}${detail.tier === 'tier4' ? ' (ไม่ดี)' : ''}`;
+}
+
+/** คำนำเมื่อมีคู่ Tier 4 — 'market-first' ไม่ใช้คำว่า เสีย/ห้าม/อัปมงคล; 'strict' ใช้ถ้อยคำเดิม */
+export function tier4LeadText(pairs: string[], strategy: RankingStrategy): string {
+  if (strategy === 'strict') {
+    return 'พบคู่ไม่ดีอย่างน้อย 1 คู่ — กฎ "คู่เสียชนะ" ทำให้การวิเคราะห์คู่เลขที่ปรากฏ ตัดสินเป็นไม่ดีทันที';
+  }
+  return `มีคู่เลขที่ควรพิจารณา: ${pairs.join(', ')} — ตามตาราง เมื่อมีคู่ Tier 4 ผลรวมของคู่เลขที่ปรากฏจะเป็น Tier 4`;
+}
 
 interface ModeDetailPanelProps {
   input: DetailModeInput;
@@ -94,6 +114,9 @@ export function ModeDetailPanel({
   leading,
 }: ModeDetailPanelProps) {
   const { mode1Calc, mode3Calc } = buildModeCalcLines(input, mode1, mode3);
+  const strategy = useRankingStrategy();
+  const dominant = dominantPairLine(mode2);
+  const tier4Pairs = findTier4Pairs(mode2);
 
   // คำนวณจากป้ายทะเบียนอย่างเดียว (ไม่ต้องรอวันเกิดเหมือน Mode 6/7) จึงโชว์ผลจริงได้ทันทีตรงนี้
   // โดยไม่ต้องให้ผู้ใช้กดลิงก์ไปหน้าเต็มก่อนถึงจะเห็นอะไร — คำนวณเฉพาะตอนเปิด flag เท่านั้น
@@ -129,10 +152,7 @@ export function ModeDetailPanel({
             คู่ที่พบ: {mode2.pairsFound.join(', ')}
             {mode2.pairsFound.length > 1 && ' (ตัวหลังสำคัญกว่า)'}
           </div>
-          <div className="meaning">
-            {mode2.dominantPair} = {TIER_LABEL[mode2.tier]}
-            {mode2.tier === 'tier4' ? ' (ไม่ดี)' : ''}
-          </div>
+          <div className="meaning">{dominant}</div>
           <span
             className="tag"
             style={
@@ -144,11 +164,8 @@ export function ModeDetailPanel({
             {TIER_LABEL[mode2.tier]}
           </span>
           <div className="explanation">
-            {mode2.pairDetails.some((p) => p.tier === 'tier4') && (
-              <p className="explanation-lead">
-                พบคู่ไม่ดีอย่างน้อย 1 คู่ — กฎ &quot;คู่เสียชนะ&quot; ทำให้การวิเคราะห์คู่เลขที่ปรากฏ
-                ตัดสินเป็นไม่ดีทันที
-              </p>
+            {tier4Pairs.length > 0 && (
+              <p className="explanation-lead">{tier4LeadText(tier4Pairs, strategy)}</p>
             )}
             <ul className="pair-meaning-list">
               {mode2.pairDetails.map((p, i) => (

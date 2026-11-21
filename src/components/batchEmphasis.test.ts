@@ -112,7 +112,9 @@ describe('โหมด "เลขที่เล็งไว้" และกา
     expect(html).not.toContain('พบคู่เสีย (Mode 2)');
     expect(ranked.some((r) => r.hasBadPair)).toBe(true);
     const tableHtml = renderPanel('table', { ...state(false), targetTails: [...tails, '', '', '', '', ''] });
-    expect(count(tableHtml, /คู่เลขที่ปรากฏ: พบคู่เสีย/g)).toBe(ranked.filter((r) => r.hasBadPair).length);
+    // [fix/ranking-market-first] โหมดทั่วไป (ค่าเริ่มต้น) ใช้คำเตือนนุ่มนวล "มีคู่เลขที่ควรพิจารณา:" แทน "คู่เลขที่ปรากฏ: พบคู่เสีย" (ถ้อยคำเดิมอยู่ในโหมดคัดเข้ม)
+    expect(count(tableHtml, /มีคู่เลขที่ควรพิจารณา:/g)).toBe(ranked.filter((r) => r.hasBadPair).length);
+    expect(tableHtml).not.toContain('พบคู่เสีย');
     expect(tableHtml).not.toContain('พบคู่เสีย (Mode 2)');
     expect(html).not.toContain('compare-column');
   });

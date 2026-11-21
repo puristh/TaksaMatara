@@ -40,10 +40,11 @@ describe('comparePlates — front=8, letters=[ข,ง]: "22" (finalScore=121, ha
   const letters: [string, string] = ['ข', 'ง'];
 
   it('ranks the clean plate ("22") above the bad-pair plate ("02") despite its lower finalScore — matches compareByQuality/hasBadPair priority', () => {
+    // [fix/ranking-market-first] ลำดับเดิม (คู่ Tier 4 แพ้ก่อนดูคะแนน) = โหมดคัดเข้ม → strategy='strict', expectation คงเดิม
     const results = comparePlates([
       { frontDigit: front, thaiLetters: letters, tailDigits: '02' },
       { frontDigit: front, thaiLetters: letters, tailDigits: '22' },
-    ]);
+    ], 'strict');
     const r02 = results[0];
     const r22 = results[1];
     expect(r22.hasBadPair).toBe(false);
@@ -73,10 +74,11 @@ describe('comparePlates — front=8, letters=[ข,ง]: "22" (finalScore=121, ha
   });
 
   it('ayatana6/fiveElement never influence rank, even mocked to flatly contradict Mode 1-3 (favoring "02", the plate that should lose)', () => {
+    // [fix/ranking-market-first] ลำดับเดิม (คู่ Tier 4 แพ้ก่อนดูคะแนน) = โหมดคัดเข้ม → strategy='strict', expectation คงเดิม
     const results = comparePlates([
       { frontDigit: front, thaiLetters: letters, tailDigits: '02' },
       { frontDigit: front, thaiLetters: letters, tailDigits: '22' },
-    ]);
+    ], 'strict');
     const r02 = results[0];
     const r22 = results[1];
     // sanity: the mocks really are wired up and really do contradict Mode 1-3
@@ -142,11 +144,12 @@ describe('comparePlates — scales beyond 2 inputs without special-casing (archi
   it('accepts 3 inputs and ranks all of them consistently (competition-style ranking: ties share a rank, the next distinct group skips ahead)', () => {
     const front = 8;
     const letters: [string, string] = ['ข', 'ง'];
+    // [fix/ranking-market-first] ลำดับเดิม (คู่ Tier 4 แพ้ก่อนดูคะแนน) = โหมดคัดเข้ม → strategy='strict', expectation คงเดิม
     const results = comparePlates([
       { frontDigit: front, thaiLetters: letters, tailDigits: '02' }, // hasBadPair=true, score 202
       { frontDigit: front, thaiLetters: letters, tailDigits: '22' }, // hasBadPair=false, score 121
       { frontDigit: front, thaiLetters: letters, tailDigits: '22' }, // duplicate of slot 1 — ties with it
-    ]);
+    ], 'strict');
     expect(results).toHaveLength(3);
     expect(results[1].rank).toBe(1);
     expect(results[2].rank).toBe(1);

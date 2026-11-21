@@ -4,6 +4,8 @@ import { ModeDetailPanel } from './ModeDetailPanel';
 import { FEATURE_FLAGS } from '../config/featureFlags';
 import type { PlateInput } from '../engine';
 import { PlateWithTags } from './PlateWithTags';
+import { pairWarningText } from '../engine/combine';
+import { useRankingStrategy } from './RankingStrategyContext';
 
 type DetailModeInput = Pick<PlateInput, 'frontDigit' | 'thaiLetters' | 'tailDigits'>;
 
@@ -30,6 +32,8 @@ export function ComparisonResultCard({
   onViewAyatana6,
   headerExtra,
 }: ComparisonResultCardProps) {
+  // ข้อความเดียวกับ badge ของหน้า Batch (pairWarningText) — ระบุคู่ Tier 4 จริงทุกคู่
+  const pairWarning = pairWarningText(result.mode2, useRankingStrategy());
   return (
     <div className={`compare-column${isWinner ? ' winner' : ''}`}>
       <div className="compare-column-header">
@@ -44,7 +48,7 @@ export function ComparisonResultCard({
         </div>
         <div className="compare-score-line">
           คะแนนรวม: {result.finalScore}
-          {result.hasBadPair && ' · พบคู่เสีย (Mode 2)'}
+          {pairWarning && ` · ${pairWarning}`}
         </div>
         {headerExtra}
       </div>

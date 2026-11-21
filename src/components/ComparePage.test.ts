@@ -146,15 +146,28 @@ describe('slotLabel', () => {
 describe('buildWinnerSummary', () => {
   const front = 8;
 
-  it('names the clean plate (ทะเบียน B) as winner over a bad-pair plate (ทะเบียน A), citing the bad-pair reason', () => {
+  it('[strict] names the clean plate (ทะเบียน B) as winner over a bad-pair plate (ทะเบียน A), citing the bad-pair reason', () => {
     const letters: [string, string] = ['ข', 'ง'];
     const results = comparePlates([
       { frontDigit: front, thaiLetters: letters, tailDigits: '02' }, // hasBadPair=true
       { frontDigit: front, thaiLetters: letters, tailDigits: '22' }, // hasBadPair=false, wins
-    ]);
-    const summary = buildWinnerSummary(results);
+      // [fix/ranking-market-first] ลำดับ/ถ้อยคำเดิม = โหมดคัดเข้ม → ส่ง 'strict' ทั้ง comparePlates และ buildWinnerSummary, expectation คงเดิม
+    ], 'strict');
+    const summary = buildWinnerSummary(results, 'strict');
     expect(summary).toContain('ทะเบียน B');
     expect(summary).toContain('คู่เสีย');
+  });
+
+  it('[market-first] "02" (202, มีคู่ Tier 4) ชนะ "22" (121) ด้วยคะแนนรวม — เหตุผลไม่ใช้คำว่า "เสีย"', () => {
+    const letters: [string, string] = ['ข', 'ง'];
+    const results = comparePlates([
+      { frontDigit: front, thaiLetters: letters, tailDigits: '02' },
+      { frontDigit: front, thaiLetters: letters, tailDigits: '22' },
+    ]);
+    expect(results.map((r) => r.rank)).toEqual([1, 2]);
+    const summary = buildWinnerSummary(results);
+    expect(summary).toBe('ทะเบียน A ดีกว่า — คะแนนรวมสูงกว่า');
+    expect(summary).not.toMatch(/เสีย|ห้าม|อัปมงคล/);
   });
 
   it('reports a tie when both plates rank equally', () => {

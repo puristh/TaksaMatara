@@ -254,11 +254,20 @@ describe('RankingPanel — "เลขที่เล็งไว้" engine (ran
     expect(results.map((r) => r.input.tailDigits)).toEqual(['8899', '995', '95']);
   });
 
-  it('a plate with a bad pair or Mode1=bad still appears (ranked last), never silently dropped', () => {
+  it('[strict] a plate with a bad pair or Mode1=bad still appears (ranked last), never silently dropped', () => {
     // "12": Mode1 12+3=15 excellent แต่คู่ 12 เป็น tier4 → hasBadPair ต้องแพ้ 95
-    const results = rankTargetTails(front, letters, ['12', '95']);
+    // [fix/ranking-market-first] ลำดับเดิม = โหมดคัดเข้ม → ส่ง 'strict', expectation คงเดิม
+    const results = rankTargetTails(front, letters, ['12', '95'], 'strict');
     expect(results.map((r) => r.input.tailDigits)).toEqual(['95', '12']);
     expect(results[1].hasBadPair).toBe(true);
+    expect(results.map((r) => r.rank)).toEqual([1, 2]);
+  });
+
+  it('[market-first] "12" (202 = ตลาดดีมาก 200 + คู่ Tier 4 0 + Reduce ดี 2) อยู่เหนือ "95" (152) ตามคะแนน และยังแสดงอยู่', () => {
+    const results = rankTargetTails(front, letters, ['12', '95']);
+    expect(results.map((r) => r.input.tailDigits)).toEqual(['12', '95']);
+    expect(results.map((r) => r.finalScore)).toEqual([202, 152]);
+    expect(results[0].hasBadPair).toBe(true);
     expect(results.map((r) => r.rank)).toEqual([1, 2]);
   });
 });

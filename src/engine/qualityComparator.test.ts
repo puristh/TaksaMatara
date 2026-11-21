@@ -7,11 +7,12 @@ function item(overrides: Partial<QualityScored>): QualityScored {
 }
 
 describe('compareByQuality', () => {
-  it('hasBadPair=false always sorts before hasBadPair=true, regardless of finalScore', () => {
+  it('[strict] hasBadPair=false always sorts before hasBadPair=true, regardless of finalScore', () => {
     const clean = item({ tailDigits: '99', finalScore: 1, hasBadPair: false });
     const bad = item({ tailDigits: '00', finalScore: 999, hasBadPair: true });
-    expect(compareByQuality(clean, bad)).toBeLessThan(0);
-    expect(compareByQuality(bad, clean)).toBeGreaterThan(0);
+    // [fix/ranking-market-first] ลำดับเดิม = โหมดคัดเข้ม → ส่ง 'strict', expectation คงเดิม
+    expect(compareByQuality(clean, bad, 'strict')).toBeLessThan(0);
+    expect(compareByQuality(bad, clean, 'strict')).toBeGreaterThan(0);
   });
 
   it('within the same hasBadPair group, higher finalScore sorts first', () => {
@@ -40,7 +41,7 @@ describe('compareByQuality', () => {
     expect(compareByQuality(a, b)).toBe(0);
   });
 
-  it('sorting a mixed array: hasBadPair=false group entirely before hasBadPair=true group, each sorted by finalScore desc then tailDigits asc', () => {
+  it('[strict] sorting a mixed array: hasBadPair=false group entirely before hasBadPair=true group, each sorted by finalScore desc then tailDigits asc', () => {
     const items: QualityScored[] = [
       item({ tailDigits: '50', finalScore: 100, hasBadPair: true }),
       item({ tailDigits: '10', finalScore: 300, hasBadPair: false }),
@@ -48,7 +49,28 @@ describe('compareByQuality', () => {
       item({ tailDigits: '05', finalScore: 400, hasBadPair: true }),
       item({ tailDigits: '99', finalScore: 50, hasBadPair: false }),
     ];
-    const sorted = [...items].sort(compareByQuality);
+    // [fix/ranking-market-first] ลำดับเดิม = โหมดคัดเข้ม → ส่ง 'strict', expectation คงเดิม
+    const sorted = [...items].sort((a, b) => compareByQuality(a, b, 'strict'));
     expect(sorted.map((i) => i.tailDigits)).toEqual(['10', '20', '99', '05', '50']);
+  });
+
+  it('[market-first, ค่าเริ่มต้น] ไม่มีชั้น hasBadPair: คะแนนสูงกว่าชนะเสมอ แม้มีคู่ Tier 4', () => {
+    const clean = item({ tailDigits: '99', finalScore: 1, hasBadPair: false });
+    const bad = item({ tailDigits: '00', finalScore: 999, hasBadPair: true });
+    expect(compareByQuality(bad, clean)).toBeLessThan(0);
+    expect(compareByQuality(bad, clean, 'market-first')).toBeLessThan(0);
+    expect(compareByQuality(clean, bad)).toBeGreaterThan(0);
+  });
+
+  it('[market-first] เรียงอาร์เรย์ผสม: คะแนนมาก→น้อย แล้วเลขท้ายน้อย→มาก ไม่แยกกลุ่มคู่ Tier 4', () => {
+    const items: QualityScored[] = [
+      item({ tailDigits: '50', finalScore: 100, hasBadPair: true }),
+      item({ tailDigits: '10', finalScore: 300, hasBadPair: false }),
+      item({ tailDigits: '20', finalScore: 300, hasBadPair: false }),
+      item({ tailDigits: '05', finalScore: 400, hasBadPair: true }),
+      item({ tailDigits: '99', finalScore: 50, hasBadPair: false }),
+    ];
+    const sorted = [...items].sort((a, b) => compareByQuality(a, b));
+    expect(sorted.map((i) => i.tailDigits)).toEqual(['05', '10', '20', '50', '99']);
   });
 });

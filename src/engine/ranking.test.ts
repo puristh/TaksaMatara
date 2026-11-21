@@ -268,8 +268,9 @@ describe('generateTopCandidates — favoriteDigits (backward compatible when unu
   // below assert the current (favoriteMatchScore-primary, within-hasBadPair-group) behavior
   // — verified via direct execution of generateTopCandidates(), not assumed.
 
+  // [fix/ranking-market-first] ลำดับเดิม (hasBadPair เหนือเลขโปรด) = โหมดคัดเข้ม → เรียกด้วย strategy='strict', expectation คงเดิม
   it('favoriteMatchScore dominates within the hasBadPair=false group: with favoriteDigits=["8",null,null,null], every "8"-tail (favoriteMatchScore=4) outranks every non-"8" tail, even ones with a much higher finalScore', () => {
-    const baseline = generateTopCandidates(front, letters, 2, false, false, 10);
+    const baseline = generateTopCandidates(front, letters, 2, false, false, 10, undefined, 'strict');
     expect(baseline.map((c) => c.tailDigits)).toEqual([
       '45',
       '54',
@@ -289,7 +290,7 @@ describe('generateTopCandidates — favoriteDigits (backward compatible when unu
       null,
       null,
       null,
-    ]);
+    ], 'strict');
     // every "8"-tail is promoted ahead of "45"/"54"/"55" (finalScore=252) and "14"
     // (finalScore=242), despite those clean tails scoring far higher on finalScore alone —
     // favoriteMatchScore is the primary key now, finalScore only breaks ties within it
@@ -449,9 +450,10 @@ describe('generateTopCandidates — favoriteMatchScore always outranks finalScor
     expect(rank('77')).toBeLessThan(rank('22'));
   });
 
+  // [fix/ranking-market-first] ลำดับเดิม (hasBadPair เหนือเลขโปรด) = โหมดคัดเข้ม → เรียกด้วย strategy='strict', expectation คงเดิม
   it('hasBadPair still overrides favoriteMatchScore — "12"/"21" (a bad pair) still sort to the very bottom, below every clean candidate, regardless of favoriteMatchScore', () => {
     const tailLength = 2;
-    const all = generateTopCandidates(front, letters, tailLength, false, false, 200, favoriteDigits);
+    const all = generateTopCandidates(front, letters, tailLength, false, false, 200, favoriteDigits, 'strict');
     const c12 = all.find((c) => c.tailDigits === '12')!;
     const c21 = all.find((c) => c.tailDigits === '21')!;
     expect(c12.hasBadPair).toBe(true);
@@ -465,9 +467,10 @@ describe('generateTopCandidates — favoriteMatchScore always outranks finalScor
     expect(all.indexOf(c21)).toBeGreaterThan(lastCleanIndex);
   });
 
+  // [fix/ranking-market-first] ลำดับเดิม (hasBadPair เหนือเลขโปรด) = โหมดคัดเข้ม → เรียกด้วย strategy='strict', expectation คงเดิม
   it('backward compatible: omitting favoriteDigits makes favoriteMatchScore irrelevant, so sort reduces to hasBadPair -> finalScore desc -> numeric asc, unaffected by this priority swap', () => {
     const tailLength = 2;
-    const withoutFavorites = generateTopCandidates(front, letters, tailLength, false, false, 200);
+    const withoutFavorites = generateTopCandidates(front, letters, tailLength, false, false, 200, undefined, 'strict');
     for (const c of withoutFavorites) {
       expect(c.favoriteMatchScore).toBe(0);
     }
@@ -480,7 +483,9 @@ describe('generateTopCandidates — favoriteMatchScore always outranks finalScor
   });
 });
 
-describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) always sorts to the very bottom, even above a lower-finalScore clean candidate', () => {
+// [fix/ranking-market-first] บล็อกนี้ทดสอบลำดับเดิม (คู่ Tier 4 ไปท้ายเสมอ) ซึ่งตอนนี้เป็น "โหมดคัดเข้ม" —
+// เพิ่มอาร์กิวเมนต์ strategy='strict' ให้ทุกการเรียก ส่วน expectation คงเดิมทุกตัว (โหมดทั่วไปทดสอบใน rankingStrategy.test.ts)
+describe('generateTopCandidates — [strict] hasBadPair (Mode 2 คู่เสีย) always sorts to the very bottom, even above a lower-finalScore clean candidate', () => {
   // front=8, letters=[ข,ง], tailLength=2 gives a small, fully-enumerable pool (67 qualifying
   // candidates after mode1=bad filtering) split cleanly into 33 hasBadPair=false ("group A")
   // and 34 hasBadPair=true ("group B") candidates — verified via direct execution below.
@@ -488,7 +493,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
   const letters: [string, string] = ['ข', 'ง'];
 
   it('candidate.hasBadPair mirrors mode2.tier === "tier4" exactly, and both groups are non-empty for this front/letters combo', () => {
-    const all = generateTopCandidates(front, letters, 2, false, false, 200);
+    const all = generateTopCandidates(front, letters, 2, false, false, 200, undefined, 'strict');
     for (const c of all) {
       expect(c.hasBadPair).toBe(c.mode2.tier === 'tier4');
     }
@@ -497,7 +502,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
   });
 
   it('all hasBadPair=false candidates come strictly before all hasBadPair=true candidates — no interleaving, regardless of finalScore', () => {
-    const all = generateTopCandidates(front, letters, 2, false, false, 200);
+    const all = generateTopCandidates(front, letters, 2, false, false, 200, undefined, 'strict');
     const firstBadIndex = all.findIndex((c) => c.hasBadPair);
     expect(firstBadIndex).toBe(33);
     expect(all.slice(0, firstBadIndex).every((c) => !c.hasBadPair)).toBe(true);
@@ -505,7 +510,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
   });
 
   it('user-reported case: "12"/"21" (finalScore=202, has a bad pair) rank after every clean candidate, including lower-finalScore ones like "16"/"61"(232) and "47"/"48"(222)', () => {
-    const all = generateTopCandidates(front, letters, 2, false, false, 200);
+    const all = generateTopCandidates(front, letters, 2, false, false, 200, undefined, 'strict');
     const rank = (t: string) => all.findIndex((c) => c.tailDigits === t);
     for (const clean of ['16', '61', '47', '48']) {
       expect(rank(clean)).toBeLessThan(rank('12'));
@@ -514,7 +519,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
   });
 
   it('hasBadPair beats finalScore outright: "22" (finalScore=121, clean) outranks "02" (finalScore=202, has a bad pair) despite scoring 81 points lower', () => {
-    const all = generateTopCandidates(front, letters, 2, false, false, 200);
+    const all = generateTopCandidates(front, letters, 2, false, false, 200, undefined, 'strict');
     const c22 = all.find((c) => c.tailDigits === '22')!;
     const c02 = all.find((c) => c.tailDigits === '02')!;
     expect(c22).toMatchObject({ finalScore: 121, hasBadPair: false });
@@ -523,7 +528,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
   });
 
   it('Mode 3 has no independent effect on the hasBadPair layer: mode3="neutral" clean "22" still outranks mode3="good" bad-pair "02" — proving Mode 3 stays FYI-only and never enters the comparator', () => {
-    const all = generateTopCandidates(front, letters, 2, false, false, 200);
+    const all = generateTopCandidates(front, letters, 2, false, false, 200, undefined, 'strict');
     const c22 = all.find((c) => c.tailDigits === '22')!;
     const c02 = all.find((c) => c.tailDigits === '02')!;
     expect(c22.mode3.tier).toBe('neutral');
@@ -532,7 +537,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
   });
 
   it('within group B (hasBadPair=true), candidates still sort by finalScore descending, not randomly or by insertion order', () => {
-    const all = generateTopCandidates(front, letters, 2, false, false, 200);
+    const all = generateTopCandidates(front, letters, 2, false, false, 200, undefined, 'strict');
     const groupB = all.filter((c) => c.hasBadPair);
     expect(groupB.length).toBeGreaterThan(1);
     for (let i = 1; i < groupB.length; i++) {
@@ -546,7 +551,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
       null,
       null,
       null,
-    ]);
+    ], 'strict');
     const firstBadIndex = withFavorite.findIndex((c) => c.hasBadPair);
     expect(withFavorite.slice(0, firstBadIndex).every((c) => !c.hasBadPair)).toBe(true);
     expect(withFavorite.slice(firstBadIndex).every((c) => c.hasBadPair)).toBe(true);
@@ -562,7 +567,7 @@ describe('generateTopCandidates — hasBadPair (Mode 2 คู่เสีย) al
   });
 
   it('backward compatible: within a single hasBadPair group taken in isolation, ordering matches the pre-feature comparator (finalScore desc, then numeric asc) exactly — equivalent to "group B is empty" from that group\'s own perspective', () => {
-    const all = generateTopCandidates(front, letters, 2, false, false, 200);
+    const all = generateTopCandidates(front, letters, 2, false, false, 200, undefined, 'strict');
     for (const hasBadPair of [false, true]) {
       const group = all.filter((c) => c.hasBadPair === hasBadPair);
       const reSorted = [...group].sort((a, b) => {

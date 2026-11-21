@@ -110,3 +110,14 @@ export interface PlateVerdict {
   /** true เมื่อเลขประมูลชนกับ Mode2 tier4 และควรถูกซ่อนจากรายการหลักตาม default filter */
   hiddenByDefault: boolean;
 }
+
+/**
+ * กลยุทธ์การจัดอันดับ (มีผลเฉพาะ "ลำดับ" และถ้อยคำเตือนคู่เลข — ไม่เปลี่ยนสูตรคะแนน/Tier/กลุ่มตลาด/verdict)
+ * - 'market-first' (ค่าเริ่มต้น): ตลาดนำ — เลขที่เล็งไว้/เลขโปรด → คะแนนรวม → เลขท้ายน้อยไปมาก
+ *   ป้ายที่มีคู่ Tier 4 ยังอยู่ในอันดับตามคะแนน และเตือนแบบนุ่มนวล ("มีคู่เลขที่ควรพิจารณา")
+ * - 'strict' (โหมดคัดเข้ม, ซ่อน): ลำดับเดิม — ป้ายไม่มีคู่ Tier 4 ขึ้นก่อนเสมอ แล้วจึงดูคะแนน
+ *   และใช้ถ้อยคำเดิม ("พบคู่เสีย")
+ */
+export type RankingStrategy = 'market-first' | 'strict';
+
+export const DEFAULT_RANKING_STRATEGY: RankingStrategy = 'market-first';

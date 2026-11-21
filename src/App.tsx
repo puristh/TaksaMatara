@@ -15,6 +15,7 @@ import { BirthdayCompatPage } from './components/BirthdayCompatPage';
 import { ComparePage } from './components/ComparePage';
 import { FontLicensesPage } from './components/FontLicensesPage';
 import { FEATURE_FLAGS } from './config/featureFlags';
+import { StrictModeIndicator, useRankingStrategy } from './components/RankingStrategyContext';
 
 type View =
   | 'landing'
@@ -84,6 +85,8 @@ export default function App() {
   const [view, setView] = useState<View>(() =>
     typeof window === 'undefined' ? 'landing' : viewFromHash(window.location.hash),
   );
+  // โหมดคัดเข้ม (ซ่อน) — main.tsx ตัดสินครั้งเดียวตอนเปิดเว็บ (ดู config/rankingStrategy.ts)
+  const rankingStrategy = useRankingStrategy();
   const [plates, setPlates] = useState<PlateInput[]>([]);
   const [showAllAuction, setShowAllAuction] = useState(false);
   const [fiveElementInput, setFiveElementInput] = useState<DetailModeInput | null>(null);
@@ -181,7 +184,7 @@ export default function App() {
     [navigate],
   );
 
-  const results: PlateVerdict[] = plates.map((p) => analyzePlate(p, { showAllAuction }));
+  const results: PlateVerdict[] = plates.map((p) => analyzePlate(p, { showAllAuction, strategy: rankingStrategy }));
   const visibleResults = results.filter((r) => !r.hiddenByDefault);
   const hiddenCount = results.length - visibleResults.length;
 
@@ -189,6 +192,7 @@ export default function App() {
     <div className="app">
       {/* แถบเครื่องมืออยู่ในลำดับปกติของหน้า (ไม่ลอย) — ดู .app-toolbar ใน theme.css */}
       <div className="app-toolbar">
+        <StrictModeIndicator strategy={rankingStrategy} />
         <FontScaleControl />
         <ThemeToggle theme={theme} onToggle={toggleTheme} />
       </div>

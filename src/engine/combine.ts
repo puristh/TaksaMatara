@@ -4,28 +4,70 @@ import type {
   Mode1Result,
   Mode2Result,
   Mode3Result,
+  RankingStrategy,
   TierKey,
 } from './types';
+import { DEFAULT_RANKING_STRATEGY } from './types';
+
+/**
+ * คู่ Tier 4 ที่พบจริงในเลขท้าย (ตามลำดับที่ปรากฏ ไม่ซ้ำ) — ใช้แสดงผลเท่านั้น
+ * เช่น "1245" -> ["12"], "1212" -> ["12","21"] · ไม่มีคู่ Tier 4 -> []
+ */
+export function findTier4Pairs(mode2: Pick<Mode2Result, 'pairDetails'>): string[] {
+  const out: string[] = [];
+  for (const p of mode2.pairDetails) {
+    if (p.tier === 'tier4' && !out.includes(p.pair)) out.push(p.pair);
+  }
+  return out;
+}
+
+/**
+ * ข้อความเตือนคู่ Tier 4 (ข้อความเดียวที่ทุกหน้าใช้: badge ของ Batch ทั้งสองโหมด, การ์ดเปรียบเทียบ, หน้าเลขเดี่ยว)
+ * - 'market-first': นุ่มนวล ไม่ใช้คำว่า เสีย/ห้าม/อัปมงคล เช่น "มีคู่เลขที่ควรพิจารณา: 12"
+ * - 'strict': ถ้อยคำเดิม เช่น "พบคู่เสีย "12""
+ * ไม่มีคู่ Tier 4 -> null
+ */
+export function pairWarningText(
+  mode2: Pick<Mode2Result, 'pairDetails'>,
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
+): string | null {
+  const pairs = findTier4Pairs(mode2);
+  if (pairs.length === 0) return null;
+  if (strategy === 'strict') return `พบคู่เสีย ${pairs.map((p) => `"${p}"`).join(', ')}`;
+  return `มีคู่เลขที่ควรพิจารณา: ${pairs.join(', ')}`;
+}
 
 /**
  * ข้อ 5: รวมผล Verdict + Badge
  * - Mode 1 ตัดสิน verdict เสมอ ไม่มีโหมดอื่นเปลี่ยนค่านี้ได้
- * - Mode 2 bad -> badge warning, ไม่งั้น badge positive
+ * - Mode 2 มีคู่ Tier 4 -> 'market-first': badge neutral (สีกลาง) "มีคู่เลขที่ควรพิจารณา: <คู่จริงทุกคู่>"
+ *                         'strict': badge warning "คู่เลขที่ปรากฏ: พบคู่เสีย "<คู่จริงทุกคู่>""
+ *   ไม่มี -> badge positive
  * - Mode 3 good -> badge positive, ไม่งั้น badge neutral ("ปานกลาง")
+ * strategy มีผลเฉพาะถ้อยคำ/สีของ badge — verdict มาจาก Mode 1 เสมอ
  */
 export function combineVerdictAndBadges(
   mode1: Mode1Result,
   mode2: Mode2Result,
   mode3: Mode3Result,
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
 ): { verdict: boolean; badges: Badge[] } {
   const verdict = mode1.tier !== 'bad';
 
   const badges: Badge[] = [];
 
-  if (mode2.tier === 'tier4') {
-    badges.push({ type: 'warning', text: `คู่เลขที่ปรากฏ: พบคู่เสีย "${mode2.dominantPair}"` });
+  const warning = pairWarningText(mode2, strategy);
+  if (warning !== null) {
+    badges.push(
+      strategy === 'strict'
+        ? { type: 'warning', text: `คู่เลขที่ปรากฏ: ${warning}` }
+        : { type: 'neutral', text: warning },
+    );
   } else {
-    badges.push({ type: 'positive', text: 'คู่เลขที่ปรากฏ: ไม่มีคู่เสีย' });
+    badges.push({
+      type: 'positive',
+      text: strategy === 'strict' ? 'คู่เลขที่ปรากฏ: ไม่มีคู่เสีย' : 'คู่เลขที่ปรากฏ: ไม่มีคู่ที่ควรพิจารณา',
+    });
   }
 
   if (mode3.tier === 'good') {

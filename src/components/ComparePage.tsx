@@ -2,7 +2,9 @@ import { useMemo, useRef, useState } from 'react';
 import { comparePlates } from '../engine/comparePlates';
 import type { ComparisonResult } from '../engine/comparePlates';
 import { ComparisonResultCard } from './ComparisonResultCard';
-import type { PlateInput } from '../engine';
+import type { PlateInput, RankingStrategy } from '../engine';
+import { DEFAULT_RANKING_STRATEGY } from '../engine/types';
+import { useRankingStrategy } from './RankingStrategyContext';
 import {
   frontDigitToField,
   isOptionalFrontDigitField,
@@ -104,7 +106,10 @@ export function slotLabel(index: number): string {
  * ผลลัพธ์เสมอ ไม่ใช่เดาเอาเอง — ออกแบบให้ทำงานได้กับ N ช่องในอนาคต (ไม่ใช่ hardcode 2 ช่อง) แต่
  * ข้อความละเอียด (ระบุใบที่แพ้ตรงๆ) จะเทียบได้ชัดที่สุดตอนมี 2 ช่องอย่างที่ใช้งานจริงตอนนี้
  */
-export function buildWinnerSummary(results: ComparisonResult[]): string {
+export function buildWinnerSummary(
+  results: ComparisonResult[],
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
+): string {
   if (results.length === 0) return '';
 
   const bestRank = Math.min(...results.map((r) => r.rank));
@@ -131,8 +136,9 @@ export function buildWinnerSummary(results: ComparisonResult[]): string {
     return `${winnerName} ดีกว่า — อีกใบอยู่ในกลุ่มบทสรุปพลังเลขศาสตร์ทะเบียนรถ "ไม่ควรใช้"`;
   }
 
+  // เหตุผล "ไม่มีคู่เสีย" ใช้เฉพาะโหมดคัดเข้ม — โหมดทั่วไปตัดสินด้วยคะแนนรวม (ไม่มีชั้นคู่ Tier 4)
   const loserWithBadPair = losers.find((l) => l.hasBadPair);
-  if (loserWithBadPair && !winner.hasBadPair) {
+  if (strategy === 'strict' && loserWithBadPair && !winner.hasBadPair) {
     return `${winnerName} ดีกว่า — ไม่มีคู่เสีย ในขณะที่อีกใบพบคู่เสีย`;
   }
 
@@ -155,6 +161,7 @@ interface ComparePageProps {
 }
 
 export function ComparePage({ initialFirstSlot }: ComparePageProps = {}) {
+  const strategy = useRankingStrategy();
   const [slots, setSlots] = useState<CompareSlotFields[]>(() =>
     resolveInitialSlots(MAX_COMPARE_SLOTS, initialFirstSlot),
   );
@@ -172,10 +179,13 @@ export function ComparePage({ initialFirstSlot }: ComparePageProps = {}) {
 
   const results: ComparisonResult[] | null = useMemo(() => {
     if (!allValid) return null;
-    return comparePlates(slots.map(toPlateInput));
-  }, [slots, allValid]);
+    return comparePlates(slots.map(toPlateInput), strategy);
+  }, [slots, allValid, strategy]);
 
-  const winnerSummary = useMemo(() => (results ? buildWinnerSummary(results) : ''), [results]);
+  const winnerSummary = useMemo(
+    () => (results ? buildWinnerSummary(results, strategy) : ''),
+    [results, strategy],
+  );
 
   return (
     <div className="compare-page">
@@ -294,8 +304,11 @@ export function ComparePage({ initialFirstSlot }: ComparePageProps = {}) {
 
       <div className="section-note">
         <strong>หมายเหตุ:</strong> การจัดอันดับ &quot;ใครดีกว่า&quot; ใช้เกณฑ์เดียวกับ &quot;แนะนำเลข
-        ทะเบียน (Batch)&quot; คือดูคู่เสีย (Mode 2 คู่เลขที่ปรากฏ) เป็นอันดับแรก แล้วจึงดูคะแนนรวม
-        (Mode 1+2+3) · อายตนะ6 และธาตุจีนแสดงไว้เป็นข้อมูลประกอบเท่านั้น ไม่มีผลต่อการจัดอันดับ
+        ทะเบียน (Batch)&quot; คือ{' '}
+        {strategy === 'strict'
+          ? 'ดูคู่เสีย (Mode 2 คู่เลขที่ปรากฏ) เป็นอันดับแรก แล้วจึงดูคะแนนรวม (Mode 1+2+3)'
+          : 'ดูคะแนนรวม (Mode 1+2+3) โดยบทสรุปพลังเลขศาสตร์ทะเบียนรถมีน้ำหนักมากที่สุด'}{' '}
+        · อายตนะ6 และธาตุจีนแสดงไว้เป็นข้อมูลประกอบเท่านั้น ไม่มีผลต่อการจัดอันดับ
       </div>
     </div>
   );

@@ -4,11 +4,13 @@ import { calculateMode3 } from './mode3';
 import { detectAuctionNumber } from './auctionNumber';
 import { detectPopularNumber } from './popularNumber';
 import { combineVerdictAndBadges, resolveAuctionConflict } from './combine';
-import type { PlateInput, PlateVerdict } from './types';
+import type { PlateInput, PlateVerdict, RankingStrategy } from './types';
 
 export interface AnalyzePlateOptions {
   /** toggle "แสดงเลขประมูลทั้งหมด" ตามข้อ 6 — default false (ซ่อนตามปกติ) */
   showAllAuction?: boolean;
+  /** ถ้อยคำ badge คู่เลข (ดู RankingStrategy) — default 'market-first' */
+  strategy?: RankingStrategy;
 }
 
 export function analyzePlate(input: PlateInput, options: AnalyzePlateOptions = {}): PlateVerdict {
@@ -18,7 +20,7 @@ export function analyzePlate(input: PlateInput, options: AnalyzePlateOptions = {
   const auction = detectAuctionNumber(input.tailDigits);
   const popular = detectPopularNumber(input.tailDigits);
 
-  const { verdict, badges } = combineVerdictAndBadges(mode1, mode2, mode3);
+  const { verdict, badges } = combineVerdictAndBadges(mode1, mode2, mode3, options.strategy);
   const { hiddenByDefault, extraBadge } = resolveAuctionConflict(
     auction,
     mode2.tier,

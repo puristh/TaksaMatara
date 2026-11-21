@@ -3,7 +3,8 @@ import { analyzePlate } from './analyzePlate';
 
 describe('analyzePlate — brief section 10, cases 1, 3, 4 (match the brief exactly)', () => {
   it('case 1: "1 กข 59" -> verdict ใช้ได้, badges [positive, positive]', () => {
-    const result = analyzePlate({ frontDigit: 1, thaiLetters: ['ก', 'ข'], tailDigits: '59' });
+    // [fix/ranking-market-first] ถ้อยคำ badge เดิม = โหมดคัดเข้ม → ส่ง strategy 'strict' (โหมดทั่วไปทดสอบใน rankingStrategy.test.ts)
+    const result = analyzePlate({ frontDigit: 1, thaiLetters: ['ก', 'ข'], tailDigits: '59' }, { strategy: 'strict' });
     expect(result.mode1.total).toBe(18);
     expect(result.verdict).toBe(true);
     expect(result.badges).toEqual([
@@ -14,17 +15,20 @@ describe('analyzePlate — brief section 10, cases 1, 3, 4 (match the brief exac
   });
 
   it('case 3: "3 ขค 813" -> verdict ไม่ควรใช้, badges [warning "13", positive]', () => {
-    const result = analyzePlate({ frontDigit: 3, thaiLetters: ['ข', 'ค'], tailDigits: '813' });
+    // [fix/ranking-market-first] ถ้อยคำ badge เดิม = โหมดคัดเข้ม → ส่ง strategy 'strict' (โหมดทั่วไปทดสอบใน rankingStrategy.test.ts)
+    const result = analyzePlate({ frontDigit: 3, thaiLetters: ['ข', 'ค'], tailDigits: '813' }, { strategy: 'strict' });
     expect(result.mode1.total).toBe(21);
     expect(result.verdict).toBe(false);
     expect(result.badges).toEqual([
-      { type: 'warning', text: 'คู่เลขที่ปรากฏ: พบคู่เสีย "13"' },
+      // [fix/ranking-market-first] เดิม "13" (คู่ท้ายเสมอ) → ระบุคู่ Tier 4 จริงทุกคู่: "813" มีคู่ 81 และ 13 ซึ่งเป็น Tier 4 ทั้งคู่
+      { type: 'warning', text: 'คู่เลขที่ปรากฏ: พบคู่เสีย "81", "13"' },
       { type: 'positive', text: 'ผลรวมตัวเลข: ดี (เลข 6)' },
     ]);
   });
 
   it('case 4: "5 ขค 555" -> auction number (เลขตอง) but Mode2 is not bad -> shows normally, no toggle needed', () => {
-    const result = analyzePlate({ frontDigit: 5, thaiLetters: ['ข', 'ค'], tailDigits: '555' });
+    // [fix/ranking-market-first] ถ้อยคำ badge เดิม = โหมดคัดเข้ม → ส่ง strategy 'strict' (โหมดทั่วไปทดสอบใน rankingStrategy.test.ts)
+    const result = analyzePlate({ frontDigit: 5, thaiLetters: ['ข', 'ค'], tailDigits: '555' }, { strategy: 'strict' });
     expect(result.auction.isAuction).toBe(true);
     expect(result.auction.categories).toContain('เลขตอง');
     expect(result.mode2.tier).toBe('tier1');
@@ -41,7 +45,8 @@ describe('analyzePlate — documented discrepancies vs. brief section 10', () =>
   // See detailed reasoning in mode1.test.ts. Both source docs claim total=6; the
   // algorithm + lookup tables (the canonical source) produce 7, which is "bad".
   it('case 2 (corrected): "2 กก 21" -> total 7 -> verdict ไม่ควรใช้ (brief incorrectly says total=6, ใช้ได้)', () => {
-    const result = analyzePlate({ frontDigit: 2, thaiLetters: ['ก', 'ก'], tailDigits: '21' });
+    // [fix/ranking-market-first] ถ้อยคำ badge เดิม = โหมดคัดเข้ม → ส่ง strategy 'strict' (โหมดทั่วไปทดสอบใน rankingStrategy.test.ts)
+    const result = analyzePlate({ frontDigit: 2, thaiLetters: ['ก', 'ก'], tailDigits: '21' }, { strategy: 'strict' });
     expect(result.mode1.total).toBe(7);
     expect(result.verdict).toBe(false);
     expect(result.badges).toEqual([
@@ -58,13 +63,15 @@ describe('analyzePlate — documented discrepancies vs. brief section 10', () =>
   // the verdict is "ไม่ควรใช้" regardless — the mockup's card 5 shows a green "ใช้ได้"
   // pill, which also contradicts the brief's own consensus table for this plate.
   it('case 5 (corrected): "2 งจ 020" -> not an auction number under exact-pattern matching, Mode1 total=12 is bad -> verdict ไม่ควรใช้, shown normally (not hidden) with a Mode2 warning badge', () => {
-    const result = analyzePlate({ frontDigit: 2, thaiLetters: ['ง', 'จ'], tailDigits: '020' });
+    // [fix/ranking-market-first] ถ้อยคำ badge เดิม = โหมดคัดเข้ม → ส่ง strategy 'strict' (โหมดทั่วไปทดสอบใน rankingStrategy.test.ts)
+    const result = analyzePlate({ frontDigit: 2, thaiLetters: ['ง', 'จ'], tailDigits: '020' }, { strategy: 'strict' });
     expect(result.mode1.total).toBe(12);
     expect(result.verdict).toBe(false);
     expect(result.auction.isAuction).toBe(false);
     expect(result.mode2.tier).toBe('tier4');
     expect(result.hiddenByDefault).toBe(false);
-    expect(result.badges[0]).toEqual({ type: 'warning', text: 'คู่เลขที่ปรากฏ: พบคู่เสีย "20"' });
+    // [fix/ranking-market-first] เดิม "20" (คู่ท้ายเสมอ) → ตอนนี้ระบุคู่ Tier 4 จริงทุกคู่: "020" มีคู่ 02 และ 20 ซึ่งเป็น Tier 4 ทั้งคู่
+    expect(result.badges[0]).toEqual({ type: 'warning', text: 'คู่เลขที่ปรากฏ: พบคู่เสีย "02", "20"' });
   });
 });
 

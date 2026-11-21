@@ -14,7 +14,9 @@ import { comparePlates } from '../engine/comparePlates';
 import { combineVerdictAndBadges } from '../engine/combine';
 import { detectAuctionNumber } from '../engine/auctionNumber';
 import { detectPopularNumber } from '../engine/popularNumber';
-import type { AuctionNumberInfo, Badge, PopularNumberInfo } from '../engine/types';
+import { DEFAULT_RANKING_STRATEGY } from '../engine/types';
+import type { AuctionNumberInfo, Badge, PopularNumberInfo, RankingStrategy } from '../engine/types';
+import { useRankingStrategy } from './RankingStrategyContext';
 import type { ComparisonResult } from '../engine/comparePlates';
 import type { PlateInput } from '../engine';
 import { formatPlateText } from '../engine/plateText';
@@ -235,6 +237,7 @@ export function rankTargetTails(
   frontDigit: number,
   thaiLetters: [string, string],
   targetTails: string[],
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
 ): TargetRankedResult[] {
   const statuses = classifyTargetSlots(targetTails);
   const slots = targetTails
@@ -244,6 +247,7 @@ export function rankTargetTails(
 
   const results = comparePlates(
     slots.map(({ tailDigits }) => ({ frontDigit, thaiLetters, tailDigits })),
+    strategy,
   );
   return results
     .map((r, i) => ({ ...r, slotIndex: slots[i].slotIndex }))
@@ -336,6 +340,8 @@ export function RankingPanel({
   const probeRef = useRef<HTMLDivElement>(null);
   // id ของส่วนที่ขยาย (aria-controls ของป้ายเล็กและปุ่ม "ดูรายละเอียด")
   const detailIdBase = useId().replace(/[^a-zA-Z0-9_-]/g, '');
+  // 'market-first' (ค่าเริ่มต้น) หรือ 'strict' (โหมดคัดเข้มที่ซ่อนไว้) — มีผลกับลำดับและถ้อยคำเตือนคู่เลขเท่านั้น
+  const strategy = useRankingStrategy();
   const fieldDefaults = resolveBatchFormDefaults(restoreState);
   const [frontDigit, setFrontDigit] = useState(fieldDefaults.frontDigit);
   const [letter1, setLetter1] = useState(fieldDefaults.letter1);
@@ -390,9 +396,9 @@ export function RankingPanel({
     const letters: [string, string] = [letter1, letter2];
     const favoriteDigits: (string | null)[] = favoriteInputs.map((v) => (v === '' ? null : v));
     return {
-      2: generateTopCandidates(front, letters, 2, excludeAuction, excludePopular, rowLimit, favoriteDigits),
-      3: generateTopCandidates(front, letters, 3, excludeAuction, excludePopular, rowLimit, favoriteDigits),
-      4: generateTopCandidates(front, letters, 4, excludeAuction, excludePopular, rowLimit, favoriteDigits),
+      2: generateTopCandidates(front, letters, 2, excludeAuction, excludePopular, rowLimit, favoriteDigits, strategy),
+      3: generateTopCandidates(front, letters, 3, excludeAuction, excludePopular, rowLimit, favoriteDigits, strategy),
+      4: generateTopCandidates(front, letters, 4, excludeAuction, excludePopular, rowLimit, favoriteDigits, strategy),
     };
   }, [
     frontDigit,
@@ -404,12 +410,13 @@ export function RankingPanel({
     isValid,
     favoriteInputs,
     isTargetMode,
+    strategy,
   ]);
 
   const targetResults: TargetRankedResult[] | null = useMemo(() => {
     if (!isValid || !isTargetMode) return null;
-    return rankTargetTails(Number(frontDigit), [letter1, letter2], targetInputs);
-  }, [frontDigit, letter1, letter2, isValid, isTargetMode, targetInputs]);
+    return rankTargetTails(Number(frontDigit), [letter1, letter2], targetInputs, strategy);
+  }, [frontDigit, letter1, letter2, isValid, isTargetMode, targetInputs, strategy]);
 
   const activeCandidates = resultsByLength ? resultsByLength[activeTail] : [];
 
@@ -417,7 +424,7 @@ export function RankingPanel({
   const normalRows = activeCandidates.map((c, i) =>
     candidateRowData(c, i, `${detailIdBase}-${activeTail}-${c.tailDigits}`),
   );
-  const targetRows = (targetResults ?? []).map((r) => targetRowData(r, `${detailIdBase}-target-${r.slotIndex}`));
+  const targetRows = (targetResults ?? []).map((r) => targetRowData(r, `${detailIdBase}-target-${r.slotIndex}`, strategy));
   const { layout: resultsLayout, plateWidth: compactWidthPx } = useRankingLayout(
     probeRef,
     tableMinRemFor(isTargetMode ? targetRows : normalRows),
@@ -710,8 +717,12 @@ export function candidateRowData(c: RankingCandidate, index: number, detailId: s
  * detectAuctionNumber, detectPopularNumber) กับ mode1-3 ชุดเดียวกัน — ไม่มีการเดาค่าและไม่แก้ engine
  * verdict = mode1.tier !== 'bad' ซึ่งเท่ากับ mode1.verdict ที่โหมดนี้ใช้เดิม · เลขโปรด: โหมดนี้ล็อกช่องเลขโปรด จึงว่างเสมอ
  */
-export function targetRowData(result: TargetRankedResult, detailId: string): RankRowData {
-  const { verdict, badges } = combineVerdictAndBadges(result.mode1, result.mode2, result.mode3);
+export function targetRowData(
+  result: TargetRankedResult,
+  detailId: string,
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
+): RankRowData {
+  const { verdict, badges } = combineVerdictAndBadges(result.mode1, result.mode2, result.mode3, strategy);
   return {
     key: `target-${result.slotIndex}`,
     detailId,

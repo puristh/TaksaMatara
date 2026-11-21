@@ -5,7 +5,8 @@ import { detectAuctionNumber } from './auctionNumber';
 import { detectPopularNumber } from './popularNumber';
 import { combineVerdictAndBadges } from './combine';
 import { calculateFavoriteMatchScore, getMatchedFavoriteDigits, hasAnyFavoriteDigit } from './favoriteMatch';
-import { compareByQuality } from './qualityComparator';
+import { badPairFirst, compareByQuality } from './qualityComparator';
+import { DEFAULT_RANKING_STRATEGY } from './types';
 import type {
   AuctionNumberInfo,
   Badge,
@@ -14,6 +15,7 @@ import type {
   Mode3Result,
   PlateInput,
   PopularNumberInfo,
+  RankingStrategy,
 } from './types';
 
 export type TailLength = 2 | 3 | 4;
@@ -67,7 +69,7 @@ export interface RankingCandidate {
   verdict: boolean;
   badges: Badge[];
   finalScore: number;
-  /** true เมื่อ mode2.tier === 'tier4' ("คู่เสีย") — ใช้เป็นชั้น sort บนสุด (มาก่อน finalScore เสมอ) */
+  /** true เมื่อ mode2.tier === 'tier4' (มีคู่ Tier 4) — เป็นชั้น sort บนสุดเฉพาะ strategy 'strict' */
   hasBadPair: boolean;
   /** ผลรวมคะแนนเลขที่ชอบ (0 เมื่อไม่ได้ระบุเลขโปรด หรือเลขท้ายนี้ไม่มีเลขโปรดปนเลย) */
   favoriteMatchScore: number;
@@ -85,32 +87,16 @@ function padTail(n: number, tailLength: TailLength): string {
  * calculateMode1/2/3 + detectAuctionNumber/detectPopularNumber ที่มีอยู่แล้วทั้งหมด
  * (ไม่มี logic คำนวณใหม่ในนี้) — excludeAuction และ excludePopular เป็น filter อิสระจากกัน
  * โดยสิ้นเชิง ปิดอันหนึ่งไม่กระทบอีกอัน (weight ของเลขสวยใช้แค่แสดงผล ไม่รวมกับ finalScore)
+ * ป้ายที่ตลาด (Mode 1) = 'bad' ถูกตัดออกตั้งแต่ต้นในทุก strategy
  *
- * ลำดับความสำคัญของ sort (จากบนสุด/สำคัญสุด ลงมา):
- * 1. hasBadPair (mode2.tier === 'tier4', "คู่เสีย") -> false มาก่อน true เสมอ ไม่ว่า finalScore
- *    หรือ favoriteMatchScore จะสูงแค่ไหนก็ตาม เลขที่มีคู่เสียใน Mode 2 จะตกไปอยู่ท้ายลิสต์เสมอ
- *    (คนละกลุ่มกับเลขที่ไม่มีคู่เสียโดยสิ้นเชิง) — เพิ่มชั้นนี้เพราะพบว่า Mode 1 "ดีมาก" ที่มี
- *    คู่เสียใน Mode 2 เคยได้ finalScore สูงพอจะแซง Mode 1 "ดี" ที่ Mode 2 สะอาด ซึ่งไม่ตรงเจตนา
- *    ของระบบ
- * 2. favoriteMatchScore desc (ถ้ามีเลขโปรด — ตัดสินภายในแต่ละกลุ่ม hasBadPair แยกกัน ไม่ข้าม
- *    กลุ่ม) เลขโปรดสำคัญกว่าคะแนนรวม เพราะ Mode 3 (ส่วนที่เคยเป็นเหตุผลให้ finalScore ต้องมา
- *    ก่อนในเวอร์ชันก่อนหน้า) ไม่มีผลต่อการจัดอันดับแล้ว มีไว้แสดงเป็น FYI เท่านั้น
- * 3. finalScore desc (tie-break ภายในกลุ่มที่ favoriteMatchScore เท่ากันเท่านั้น)
- * 4. numeric tail asc (tie-break สุดท้าย)
+ * ลำดับ sort ตาม strategy (ดู RankingStrategy ใน types.ts):
+ * - 'market-first' (ค่าเริ่มต้น): favoriteMatchScore desc (เมื่อมีเลขโปรด) → finalScore desc → เลขท้ายน้อยไปมาก
+ *   ป้ายที่มีคู่ Tier 4 ไม่ถูกตัดออก และไม่ถูกดันไปท้ายลิสต์ — อยู่ตามคะแนน
+ * - 'strict' (โหมดคัดเข้ม — ลำดับเดิม): hasBadPair (false ก่อนเสมอ) → favoriteMatchScore desc
+ *   (ตัดสินภายในกลุ่ม hasBadPair เดียวกัน) → finalScore desc → เลขท้ายน้อยไปมาก
  *
- * ข้อ 1, 3, 4 ด้านบน (ไม่รวมข้อ 2 favoriteMatchScore ที่เฉพาะบริบทนี้) ถูกแยกออกไปเป็น
- * compareByQuality() ใน qualityComparator.ts เพื่อ reuse กับหน้าเปรียบเทียบทะเบียน
- * (comparePlates.ts) — sort ด้านล่างแทรก favoriteMatchScore เป็นชั้นเพิ่มเติมเฉพาะของตัวเอง
- * ระหว่าง hasBadPair กับ finalScore แล้วปล่อยให้ compareByQuality() ตัดสินที่เหลือทั้งหมด
- * (รวม hasBadPair เองด้วยเมื่อ hasBadPair ต่างกันจริง — เงื่อนไข hasBadPair ตรงนี้มีไว้แค่
- * "เปิด/ปิด" ชั้น favoriteMatchScore เท่านั้น ไม่ได้ตัดสินผลลัพธ์เอง)
- *
- * Mode 3 ("ปานกลาง"/"ดี") ไม่มีผลต่อ sort priority เลยในทุกชั้น — ใช้แสดงเป็นข้อมูลประกอบ
- * (FYI badge) เท่านั้น ผ่านทาง finalScore ที่คำนวณไว้แล้วในขั้นตอนก่อนหน้า
- *
- * ถ้าไม่ระบุ favoriteDigits เลย (undefined หรือทุกตำแหน่งเป็น null) พฤติกรรม sort คือ
- * hasBadPair -> finalScore desc -> numeric asc เพราะ favoriteMatchScore เป็น 0 หมดทุกตัว
- * ไม่มีผลต่อการ tie-break เลย (ชั้น favoriteMatchScore ถูกข้ามไปโดยอัตโนมัติ)
+ * ชั้น hasBadPair/finalScore/เลขท้าย อยู่ใน compareByQuality() (qualityComparator.ts) จุดเดียว
+ * ใช้ร่วมกับหน้าเปรียบเทียบทะเบียน — ที่นี่แทรกเฉพาะชั้น favoriteMatchScore ของตัวเอง
  */
 export function generateTopCandidates(
   frontDigit: number,
@@ -120,6 +106,7 @@ export function generateTopCandidates(
   excludePopular: boolean,
   limit = 10,
   favoriteDigits?: (string | null)[],
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
 ): RankingCandidate[] {
   const total = 10 ** tailLength;
   const candidates: RankingCandidate[] = [];
@@ -145,7 +132,7 @@ export function generateTopCandidates(
     const finalScore = calculateRankingScore(mode1, mode2, mode3);
     if (finalScore === null) continue;
 
-    const { verdict, badges } = combineVerdictAndBadges(mode1, mode2, mode3);
+    const { verdict, badges } = combineVerdictAndBadges(mode1, mode2, mode3, strategy);
 
     const favoriteMatchScore = calculateFavoriteMatchScore(tailDigits, favorites);
     const matchedFavoriteDigits = getMatchedFavoriteDigits(tailDigits, favorites);
@@ -169,10 +156,12 @@ export function generateTopCandidates(
   }
 
   candidates.sort((a, b) => {
-    if (useFavoriteSort && a.hasBadPair === b.hasBadPair && b.favoriteMatchScore !== a.favoriteMatchScore) {
+    // strict: ชั้น hasBadPair อยู่เหนือเลขโปรด จึงให้ compareByQuality ตัดสินเมื่อ hasBadPair ต่างกัน
+    const favoriteLayerApplies = !badPairFirst(strategy) || a.hasBadPair === b.hasBadPair;
+    if (useFavoriteSort && favoriteLayerApplies && b.favoriteMatchScore !== a.favoriteMatchScore) {
       return b.favoriteMatchScore - a.favoriteMatchScore;
     }
-    return compareByQuality(a, b);
+    return compareByQuality(a, b, strategy);
   });
 
   return candidates.slice(0, limit);

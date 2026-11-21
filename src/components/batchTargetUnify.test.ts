@@ -116,7 +116,9 @@ describe('badge และลิงก์เช็กวันเกิดใน�
     const rows = rowsOf(render('table', extra), 'table');
     expect(rows).toHaveLength(n);
     for (const row of rows) {
-      expect(row).toMatch(/class="badge b-(good|bad)">[✓⚠] คู่เลขที่ปรากฏ: /);
+      // [fix/ranking-market-first] เดิม b-(good|bad) "[✓⚠] คู่เลขที่ปรากฏ: " → โหมดทั่วไป: ไม่มีคู่ Tier 4 = b-good "✓ คู่เลขที่ปรากฏ: …",
+      // มีคู่ Tier 4 = b-mid (สีกลาง ไม่ใช่แดง) "— มีคู่เลขที่ควรพิจารณา: …"
+      expect(row).toMatch(/class="badge b-good">✓ คู่เลขที่ปรากฏ: |class="badge b-mid">— มีคู่เลขที่ควรพิจารณา: /);
       expect(row).toMatch(/class="badge b-(good|mid)">[✓—] ผลรวมตัวเลข: /);
       expect(row).toContain('class="birthday-compat-link">เช็คกับวันเกิด →</button>');
       expect(row).toContain('<span class="ranking-expand-text">ดูรายละเอียด</span>');
@@ -126,8 +128,11 @@ describe('badge และลิงก์เช็กวันเกิดใน�
     const ranked = rankTargetTails(FRONT, LETTERS, [...tails, '', '', '', '', '']);
     expect(ranked.some((r) => r.hasBadPair)).toBe(true);
     for (const r of ranked) {
-      const warn = combineVerdictAndBadges(r.mode1, r.mode2, r.mode3).badges.some((b) => b.type === 'warning');
+      // [fix/ranking-market-first] โหมดทั่วไปใช้ badge neutral (สีกลาง) แทน warning — เงื่อนไขเดิม: badge คู่เลขไม่ใช่ positive ⇔ hasBadPair
+      const warn = combineVerdictAndBadges(r.mode1, r.mode2, r.mode3).badges[0].type !== 'positive';
       expect(warn).toBe(r.hasBadPair);
+      const strictWarn = combineVerdictAndBadges(r.mode1, r.mode2, r.mode3, 'strict').badges.some((b) => b.type === 'warning');
+      expect(strictWarn).toBe(r.hasBadPair);
       expect(r.hasBadPair).toBe(r.mode2.tier === 'tier4');
     }
     const html = render('table', { targetTails: [...tails, '', '', '', '', ''] });

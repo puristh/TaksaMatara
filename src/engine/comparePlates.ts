@@ -2,14 +2,15 @@ import { calculateMode1 } from './mode1';
 import { calculateMode2 } from './mode2';
 import { calculateMode3 } from './mode3';
 import { calculateRankingScore } from './ranking';
-import { compareByQuality } from './qualityComparator';
+import { badPairFirst, compareByQuality } from './qualityComparator';
 import type { QualityScored } from './qualityComparator';
 import { analyzeAyatana6 } from './ayatana6';
 import type { Ayatana6Result } from './ayatana6';
 import { analyzeFiveElement } from './fiveElement';
 import type { FiveElementResult } from './fiveElement';
 import { FEATURE_FLAGS } from '../config/featureFlags';
-import type { Mode1Result, Mode2Result, Mode3Result, PlateInput } from './types';
+import { DEFAULT_RANKING_STRATEGY } from './types';
+import type { Mode1Result, Mode2Result, Mode3Result, PlateInput, RankingStrategy } from './types';
 
 /**
  * finalScore ของทะเบียนที่ mode1.tier === 'bad' — calculateRankingScore() คืน null สำหรับกรณีนี้
@@ -74,20 +75,22 @@ function analyzeForComparison(input: PlateInput, originalIndex: number): Analyze
  *
  * ต่างจาก generateTopCandidates() ตรงที่ไม่กรอง mode1=bad ทิ้ง — ทะเบียนทุกใบที่ผู้ใช้กรอกมาต้อง
  * ปรากฏในผลลัพธ์เสมอ (ผู้ใช้ต้องเห็นว่าทำไมใบนั้นถึงแพ้ ไม่ใช่หายไปเฉยๆ) จึงเพิ่มชั้น "mode1=bad
- * มาก่อนเสมอ" ไว้เหนือ compareByQuality อีกที (เทียบเท่า pattern เดียวกับที่ ranking.ts แทรก
- * favoriteMatchScore เป็นชั้นเฉพาะของตัวเอง) — ส่วน hasBadPair/finalScore/tie-break ที่เหลือ
- * ทั้งหมด reuse compareByQuality() ตรงๆ ไม่มี logic ซ้ำ
+ * ไว้ท้ายเสมอ" ไว้เหนือ compareByQuality อีกที (ทุก strategy) — ส่วนที่เหลือ reuse compareByQuality()
+ * ตรงๆ ตาม strategy ('market-first' = คะแนนรวม → เลขท้าย, 'strict' = ไม่มีคู่ Tier 4 ก่อน → คะแนนรวม → เลขท้าย)
  *
  * อายตนะ6/ธาตุจีนคำนวณมาแสดงเป็นข้อมูลประกอบเท่านั้น — ไม่ถูกใช้ในการคำนวณ rank เลย
  */
-export function comparePlates(inputs: PlateInput[]): ComparisonResult[] {
+export function comparePlates(
+  inputs: PlateInput[],
+  strategy: RankingStrategy = DEFAULT_RANKING_STRATEGY,
+): ComparisonResult[] {
   const analyzed = inputs.map((input, i) => analyzeForComparison(input, i));
 
   const sortedForRank = [...analyzed].sort((a, b) => {
     const aBad = a.mode1.tier === 'bad';
     const bBad = b.mode1.tier === 'bad';
     if (aBad !== bBad) return aBad ? 1 : -1;
-    return compareByQuality(a, b);
+    return compareByQuality(a, b, strategy);
   });
 
   const rankByIndex = new Map<number, number>();
@@ -98,7 +101,7 @@ export function comparePlates(inputs: PlateInput[]): ComparisonResult[] {
     const tiedWithPrev =
       i > 0 &&
       (curr.mode1.tier === 'bad') === (prev.mode1.tier === 'bad') &&
-      curr.hasBadPair === prev.hasBadPair &&
+      (!badPairFirst(strategy) || curr.hasBadPair === prev.hasBadPair) &&
       curr.finalScore === prev.finalScore;
     if (i > 0 && !tiedWithPrev) rank = i + 1;
     rankByIndex.set(curr.originalIndex, rank);
